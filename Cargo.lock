@@ -321,6 +321,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bitflags 2.6.0",
+ "bytemuck",
  "rand",
 ]
 

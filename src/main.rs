@@ -1,16 +1,24 @@
-use mesh_ops::{random_color_mesh, smooth_normals};
+use line_material::{
+    generate_edge_line_list_data, LineMaterial,
+};
+use mesh_ops::random_color_mesh;
 use std::time::Duration;
-
-use bevy::{animation::animate_targets, prelude::*};
+use bevy::{
+    animation::animate_targets, prelude::*, render::{
+        mesh::VertexAttributeValues, render_asset::RenderAssetUsages,
+    }
+};
 use fill_material::FillMaterial;
 use outline_material::OutlineMaterial;
 
 mod camera_plugin;
 mod fill_material;
+mod line_material;
 mod mesh_ops;
 mod outline_material;
 
 const PATH: &str = "astro/scene.gltf";
+// const PATH: &str = "sphere_flat.gltf";
 
 fn main() {
     App::new()
@@ -19,12 +27,13 @@ fn main() {
             brightness: 2000.,
         })
         .add_plugins(DefaultPlugins)
-        .add_plugins(camera_plugin::cam_plugin)
+        .add_plugins(camera_plugin::CamPlugin)
         .add_plugins(MaterialPlugin::<FillMaterial>::default())
         .add_plugins(MaterialPlugin::<OutlineMaterial>::default())
+        .add_plugins(MaterialPlugin::<LineMaterial>::default())
         .add_systems(Startup, setup)
-        .add_systems(Update, setup_scene_once_loaded.before(animate_targets))
-        .add_systems(Update, process_scene)
+        .add_systems(Update, play_animation_once_loaded.before(animate_targets))
+        .add_systems(Update, mesh_added)
         .run();
 }
 
@@ -45,8 +54,6 @@ fn setup(
     let animations = graph
         .add_clips(
             [
-                // GltfAssetLabel::Animation(2).from_asset(PATH),
-                // GltfAssetLabel::Animation(1).from_asset(PATH),
                 GltfAssetLabel::Animation(0).from_asset(PATH),
             ]
             .into_iter()
@@ -66,12 +73,13 @@ fn setup(
     // Character
     commands.spawn(SceneBundle {
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(PATH)),
+        transform: Transform::from_xyz(0.0, 0.3, 0.0),
         ..default()
     });
 }
 
 // Once the scene is loaded, start the animation
-fn setup_scene_once_loaded(
+fn play_animation_once_loaded(
     mut commands: Commands,
     animations: Res<Animations>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
@@ -95,49 +103,76 @@ fn setup_scene_once_loaded(
     }
 }
 
-fn process_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut fill_materials: ResMut<Assets<FillMaterial>>,
-    mut outline_materials: ResMut<Assets<OutlineMaterial>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<
-        (Entity, &Handle<StandardMaterial>, &Handle<Mesh>),
-        Added<Handle<Mesh>>,
-    >,
-) {
-    for (entity, _material_handle, mesh_handle) in query.iter() {
+
+fn mesh_added(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, query: Query<(Entity, &Handle<Mesh>), Added<Handle<Mesh>>>) {
+    for (entity, mesh_handle) in query.iter() {
         if let Some(mesh) = meshes.get_mut(mesh_handle) {
-            random_color_mesh(mesh);
-            smooth_normals(mesh);
-
-            // Create new materials
-            let fill_material = fill_materials.add(FillMaterial {
-                color: Vec4::new(0.0, 0.0, 0.0, 1.0),
-                displacement: 10.0,
-            });
-
-            let outline_material = outline_materials.add(OutlineMaterial {
-                flat_color: Vec4::new(0.0, 1.0, 1.0, 1.0),
-                outline_width: 2.1,
-                ..default()
-            });
-
-            let standard_material = standard_materials.add(StandardMaterial {
-                base_color: Color::rgb(0.0, 1.0, 0.0),
-                ..default()
-            });
-
-            // Remove the StandardMaterial component
-            commands.entity(entity).remove::<Handle<StandardMaterial>>();
-
-            // Add the new material components to the original mesh
-            commands
-                .entity(entity)
-                // .insert(standard_material)
-                .insert(fill_material)
-                .insert(outline_material)
-            ;
+            mesh_to_wireframe(mesh);
         }
     }
+}
+
+
+
+
+fn mesh_to_wireframe(mesh: &mut Mesh) {
+
+    random_color_mesh(mesh);
+
+    let lines = generate_edge_line_list_data(mesh);
+
+    let mut line_mesh = Mesh::new(bevy::render::render_resource::PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
+
+    let positions: Vec<[f32; 3]> = lines
+                .lines
+                .iter()
+                .flat_map(|(start, end)| vec![start.position, end.position])
+                .collect();
+
+                let colors: Vec<[f32; 4]> = lines
+                .lines
+                .iter()
+                .flat_map(|(start, end)| vec![start.color, end.color])
+                .flatten()
+                .collect();
+
+            let normal: Vec<[f32; 3]> = lines
+                .lines
+                .iter()
+                .flat_map(|(start, end)| vec![start.normal, end.normal])
+                .flatten()
+                .collect();
+
+            let joint_indices: Vec<[u16; 4]> = lines
+                .lines
+                .iter()
+                .flat_map(|(start, end)| vec![start.joint_indices, end.joint_indices])
+                .flatten()
+                .collect();
+
+            let joint_weights: Vec<[f32; 4]> = lines
+                .lines
+                .iter()
+                .flat_map(|(start, end)| vec![start.joint_weights, end.joint_weights])
+                .flatten()
+                .collect();
+
+            let joint_indices_count = joint_indices.len();
+            let joint_weights_count = joint_weights.len();
+
+            println!("{} {}", joint_indices_count, joint_weights_count);
+
+            assert_eq!(
+                joint_indices_count, joint_weights_count,
+                "Joint indices and weights must have the same length"
+            );
+
+            line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+            line_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+            line_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normal);
+            line_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX,VertexAttributeValues::Uint16x4(joint_indices));
+            line_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
+
+    *mesh = line_mesh;
+ 
 }

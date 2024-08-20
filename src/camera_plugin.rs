@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
-pub struct cam_plugin;
+pub struct CamPlugin;
 
-impl Plugin for cam_plugin {
+impl Plugin for CamPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-        app.add_systems(Update, rotate_camera);
+        app.add_systems(Update, (rotate_camera, move_camera));
     }
 }
 
@@ -63,6 +63,7 @@ fn rotate_camera(
 }
 
 
+
 // fn rotate_camera(
 //     time: Res<Time>,
 //     mut query: Query<(&mut Transform, &OrbitCamera), With<Camera>>,
@@ -80,3 +81,39 @@ fn rotate_camera(
 //         transform.look_at(Vec3::ZERO, Vec3::Y);
 //     }
 // }
+
+
+// system that moves the camera with keyboard controls
+fn move_camera(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut Transform, With<Camera3d>>,
+) {
+    let mut direction = Vec3::ZERO;
+    let move_speed = 0.01;
+
+    if keyboard_input.pressed(KeyCode::ArrowUp) {
+        direction += Vec3::Y * move_speed;
+    }
+    if keyboard_input.pressed(KeyCode::ArrowDown) {
+        direction -= Vec3::Y * move_speed;
+    }
+
+    if keyboard_input.pressed(KeyCode::ArrowLeft) {
+        direction -= Vec3::X * move_speed;
+    }
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
+        direction += Vec3::X * move_speed;
+    }
+    if keyboard_input.pressed(KeyCode::KeyP) {
+        direction += Vec3::Z * move_speed;
+    }
+    if keyboard_input.pressed(KeyCode::KeyL) {
+        direction -= Vec3::Z * move_speed;
+    }
+
+    if direction != Vec3::ZERO {
+        for mut transform in query.iter_mut() {
+            transform.translation += direction;
+        }
+    }
+}

@@ -1,6 +1,10 @@
-use bevy::{math::Vec3, prelude::Mesh, render::mesh::VertexAttributeValues, utils::HashMap};
+use bevy::{math::Vec3, prelude::Mesh, render::{mesh::{MeshVertexAttribute, VertexAttributeValues}, render_resource::VertexFormat}, utils::{HashMap, HashSet}};
 use rand::Rng;
 
+use crate::line_material::IndexLineList;
+
+
+    
 pub fn random_color_mesh(mesh: &mut Mesh) {
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
     let mut unique_positions: Vec<([f32; 3], [f32; 4])> = Vec::new();
@@ -75,3 +79,4 @@ pub fn smooth_normals(mesh: &mut Mesh) {
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, new_normals);
     }
 }
+
