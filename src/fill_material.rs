@@ -20,8 +20,8 @@ pub struct FillMaterial {
 impl Default for FillMaterial {
     fn default() -> Self {
         Self {
-            color: Vec4::new(0.0, 0.3, 0.0, 1.0),
-            displacement: 1.0,
+            color: Vec4::new(0.0, 0.0, 0.0, 1.0),
+            displacement: 0.1,
         }
     }
 }

@@ -65,7 +65,7 @@ impl Default for OutlineMaterial {
     fn default() -> Self {
         Self {
             flat_color: Vec4::new(0.6, 1.0, 0.6, 1.0),
-            outline_width: 1.0,
+            outline_width: 0.0,
             z_translate: 0.1,
             use_vertex_color: 1,
         }

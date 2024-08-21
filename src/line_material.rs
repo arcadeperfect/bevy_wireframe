@@ -20,33 +20,25 @@ use std::hash::{Hash, Hasher};
 
 use crate::ATTRIBUTE_CUSTOM;
 
-// const ATTRIBUTE_CUSTOM: MeshVertexAttribute =
-//     MeshVertexAttribute::new("CUSTOM", 2137464976, VertexFormat::Float32);
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+pub struct LineMaterial {
+    #[uniform(0)]
+    pub color: Vec4,
+}
 
-// const ATTRIBUTE_CUSTOM: MeshVertexAttribute =
-//     MeshVertexAttribute::new("Custom", 2137464976, VertexFormat::Float32);
 
-// const LINE_SHADER_PATH: &str = "shaders/line.wgsl";
-// const SOLID_SHADER_PATH: &str = "shaders/line.wgsl";
-
-#[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
-pub struct LineMaterial {}
+impl Default for LineMaterial {
+    fn default() -> Self {
+        Self {
+            color: Vec4::new(1.0, 0.3, 1.0, 1.0),
+        }
+    }
+}
 
 impl Material for LineMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/line.wgsl".into()
     }
-
-    // fn specialize(
-    //     _pipeline: &MaterialPipeline<Self>,
-    //     descriptor: &mut RenderPipelineDescriptor,
-    //     _layout: &MeshVertexBufferLayoutRef,
-    //     _key: MaterialPipelineKey<Self>,
-    // ) -> Result<(), SpecializedMeshPipelineError> {
-    //     // I don't think we need this because it infers it from the primitive topology type
-    //     // descriptor.primitive.polygon_mode = PolygonMode::Line;
-    //     Ok(())
-    // }
 }
 
 /// A list of lines with a start and end position
@@ -64,7 +56,7 @@ impl IndexLineList {
 }
 
 #[derive(Clone, Default)]
-pub struct DataLineList {
+pub struct LineList {
     pub lines: Vec<(Vert, Vert)>,
 }
 
@@ -78,8 +70,8 @@ pub struct Vert {
     pub joint_weights: Option<[f32; 4]>,
 }
 
-pub fn generate_edge_line_list_data(mesh: &Mesh) -> DataLineList {
-    let mut line_list = DataLineList::default();
+pub fn generate_edge_line_list_data(mesh: &Mesh) -> LineList {
+    let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 
     if let (

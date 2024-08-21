@@ -1,7 +1,7 @@
-use bevy::{math::Vec3, prelude::Mesh, render::{mesh::{MeshVertexAttribute, VertexAttributeValues}, render_resource::VertexFormat}, utils::{HashMap, HashSet}};
+use bevy::{math::Vec3, prelude::Mesh, render::{mesh::{MeshVertexAttribute, VertexAttributeValues}, render_asset::RenderAssetUsages, render_resource::VertexFormat}, utils::{HashMap, HashSet}};
 use rand::Rng;
 
-use crate::line_material::IndexLineList;
+use crate::line_material::{IndexLineList, LineList};
 
 
     
@@ -80,3 +80,64 @@ pub fn smooth_normals(mesh: &mut Mesh) {
     }
 }
 
+
+pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
+    let mut line_mesh = Mesh::new(
+        bevy::render::render_resource::PrimitiveTopology::LineList,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+
+    let positions: Vec<[f32; 3]> = line_list
+        .lines
+        .iter()
+        .flat_map(|(start, end)| vec![start.position, end.position])
+        .collect();
+
+    line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+    let colors: Vec<[f32; 4]> = line_list
+        .lines
+        .iter()
+        .flat_map(|(start, end)| vec![start.color, end.color])
+        .flatten()
+        .collect();
+
+    line_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+
+    let normal: Vec<[f32; 3]> = line_list
+        .lines
+        .iter()
+        .flat_map(|(start, end)| vec![start.normal, end.normal])
+        .collect();
+
+    line_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normal);
+
+    if let Some(VertexAttributeValues::Uint16x4(_)) =
+        mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX)
+    {
+        let joint_indices: Vec<[u16; 4]> = line_list
+            .lines
+            .iter()
+            .flat_map(|(start, end)| vec![start.joint_indices, end.joint_indices])
+            .flatten()
+            .collect();
+        line_mesh.insert_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+            VertexAttributeValues::Uint16x4(joint_indices),
+        );
+    }
+
+    if let Some(VertexAttributeValues::Float32x4(_)) =
+        mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+    {
+        let joint_weights: Vec<[f32; 4]> = line_list
+            .lines
+            .iter()
+            .flat_map(|(start, end)| vec![start.joint_weights, end.joint_weights])
+            .flatten()
+            .collect();
+        line_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
+    }
+
+    line_mesh
+}

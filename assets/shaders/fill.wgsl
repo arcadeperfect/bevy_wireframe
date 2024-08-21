@@ -6,6 +6,14 @@
     view_transformations::position_world_to_clip,
 }
 
+struct FillMaterial {
+    color: vec4<f32>,
+    displacement: f32,
+};
+
+@group(2) @binding(0)
+var<uniform> material: FillMaterial;
+
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
@@ -102,9 +110,6 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-#ifdef VERTEX_COLORS
-    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
-#else
-    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
-#endif
+
+    return material.color;
 }

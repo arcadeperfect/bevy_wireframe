@@ -6,7 +6,7 @@ use bevy::{
 };
 use fill_material::FillMaterial;
 use line_material::{generate_edge_line_list_data, LineMaterial};
-use mesh_ops::random_color_mesh;
+use mesh_ops::{line_list_to_mesh, random_color_mesh, smooth_normals};
 use outline_material::OutlineMaterial;
 use std::time::Duration;
 
@@ -16,8 +16,8 @@ mod line_material;
 mod mesh_ops;
 mod outline_material;
 
-// const PATH: &str = "astro/scene.gltf";
-const PATH: &str = "astro_custom/scene.gltf";
+const PATH: &str = "astro/scene.gltf";
+// const PATH: &str = "astro_custom/scene.gltf";
 // const PATH: &str = "sphere_flat.gltf";
 // const PATH: &str = "sphere.gltf";
 
@@ -113,16 +113,15 @@ fn system(
         if event.parent == my_scene_entity.0 {
             for entity in children.iter_descendants(event.parent) {
                 if let Ok((entity, mesh_handle)) = meshes.get(entity) {
-                    if let Some(original_mesh) = mesh_assets.get(mesh_handle) {
+                    if let Some(original_mesh) = mesh_assets.get_mut(mesh_handle) {
                         commands.entity(entity).remove::<Handle<StandardMaterial>>();
+
+                        // randomly color the verts
+                        random_color_mesh(original_mesh);
 
                         // Add FillMaterial component
                         let fill_material_handle = fill_materials.add(FillMaterial::default());
                         commands.entity(entity).insert(fill_material_handle.clone());
-
-                        // Clone the mesh
-                        let mut new_mesh = original_mesh.clone();
-                        mesh_to_wireframe(&mut new_mesh);
 
                         // Add FillMaterial component
                         let outline_material_handle =
@@ -163,65 +162,12 @@ fn system(
 }
 
 fn mesh_to_wireframe(mesh: &mut Mesh) {
-    // let mut mesh = m.clone();
-
+    
     random_color_mesh(mesh);
+    // smooth_normals(mesh);
 
-    let lines = generate_edge_line_list_data(&mesh);
-
-    let mut line_mesh = Mesh::new(
-        bevy::render::render_resource::PrimitiveTopology::LineList,
-        RenderAssetUsages::RENDER_WORLD,
-    );
-
-    let positions: Vec<[f32; 3]> = lines
-        .lines
-        .iter()
-        .flat_map(|(start, end)| vec![start.position, end.position])
-        .collect();
-
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-
-    let colors: Vec<[f32; 4]> = lines
-        .lines
-        .iter()
-        .flat_map(|(start, end)| vec![start.color, end.color])
-        .flatten()
-        .collect();
-
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-
-    let normal: Vec<[f32; 3]> = lines
-        .lines
-        .iter()
-        .flat_map(|(start, end)| vec![start.normal, end.normal])
-        .collect();
-
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normal);
-
-    if let Some(VertexAttributeValues::Uint16x4(_)) = mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX) {
-        let joint_indices: Vec<[u16; 4]> = lines
-            .lines
-            .iter()
-            .flat_map(|(start, end)| vec![start.joint_indices, end.joint_indices])
-            .flatten()
-            .collect();
-        line_mesh.insert_attribute(
-            Mesh::ATTRIBUTE_JOINT_INDEX,
-            VertexAttributeValues::Uint16x4(joint_indices),
-        );
-    }
-
-    if let Some(VertexAttributeValues::Float32x4(_)) = mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT)
-    {
-        let joint_weights: Vec<[f32; 4]> = lines
-            .lines
-            .iter()
-            .flat_map(|(start, end)| vec![start.joint_weights, end.joint_weights])
-            .flatten()
-            .collect();
-        line_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
-    }
+    let line_list = generate_edge_line_list_data(&mesh);
+    let line_mesh = line_list_to_mesh(&line_list, mesh);
 
     *mesh = line_mesh;
 }
