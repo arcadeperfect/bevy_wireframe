@@ -105,6 +105,6 @@ fn fragment(
 #ifdef VERTEX_COLORS
     return vec4<f32>(0.0, 0.0, 0.0, 1.0);
 #else
-    return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
 #endif
 }

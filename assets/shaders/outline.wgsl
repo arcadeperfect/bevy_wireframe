@@ -92,20 +92,22 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.position += vec4(0.0, 0.0, -material.z_translate, 0.0);
 #endif
 
-#ifdef VERTEX_COLORS
-    if (material.use_vertex_color > 0) {
-        out.color = vertex.color;
-    } else {
-        out.color = material.flat_color;
-    }
-#else
-    out.color = material.flat_color;
-#endif
+// #ifdef VERTEX_COLORS
+//     if (material.use_vertex_color > 0) {
+//         out.color = vertex.color;
+//     } else {
+//         out.color = material.flat_color;
+//     }
+// #else
+//     // out.color = material.flat_color;
+//     out.vertex_color = vec4(1.0,1.0,1.0,1.0);
+// #endif
 
     return out;
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
+    // return in.color;
+    return vec4(1.0,1.0,1.0,1.0);
 }
