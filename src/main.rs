@@ -1,14 +1,8 @@
 use bevy::{
-    animation::animate_targets,
-    core::FrameCount,
-    ecs::query,
-    pbr::wireframe::Wireframe,
-    prelude::*,
-    render::{
-        mesh::{skinning::SkinnedMesh, VertexAttributeValues},
-        render_asset::RenderAssetUsages,
-    },
-    scene::{SceneInstance, SceneInstanceReady},
+    animation::animate_targets, core::FrameCount, ecs::query, gltf::GltfPlugin, pbr::wireframe::Wireframe, prelude::*, render::{
+        mesh::{skinning::SkinnedMesh, MeshVertexAttribute, VertexAttributeValues},
+        render_asset::RenderAssetUsages, render_resource::VertexFormat,
+    }, scene::{SceneInstance, SceneInstanceReady}
 };
 use fill_material::FillMaterial;
 use line_material::{generate_edge_line_list_data, LineMaterial};
@@ -22,8 +16,10 @@ mod line_material;
 mod mesh_ops;
 mod outline_material;
 
-const PATH: &str = "astro/scene.gltf";
+// const PATH: &str = "astro/scene.gltf";
+const PATH: &str = "astro_custom/scene.gltf";
 // const PATH: &str = "sphere_flat.gltf";
+// const PATH: &str = "sphere.gltf";
 
 #[derive(Resource)]
 struct MyScene(Entity);
@@ -34,21 +30,27 @@ struct WireFrameScene;
 #[derive(Component)]
 struct OriginalSceneTag;
 
+const ATTRIBUTE_CUSTOM: MeshVertexAttribute =
+    MeshVertexAttribute::new("Custom", 2137464976, VertexFormat::Float32);
+
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
         })
-        .add_plugins(DefaultPlugins)
-        .add_plugins(camera_plugin::CamPlugin)
+        .add_plugins(
+            DefaultPlugins.set(
+                GltfPlugin::default()
+                    // Map a custom glTF attribute name to a `MeshVertexAttribute`.
+                    .add_custom_vertex_attribute("CUSTOM", ATTRIBUTE_CUSTOM),
+            ),
+        )        .add_plugins(camera_plugin::CamPlugin)
         .add_plugins(MaterialPlugin::<FillMaterial>::default())
         .add_plugins(MaterialPlugin::<OutlineMaterial>::default())
         .add_plugins(MaterialPlugin::<LineMaterial>::default())
         .add_systems(Startup, setup)
         .add_systems(Update, play_animation_once_loaded.before(animate_targets))
-        // .add_systems(Update, mesh_added)
-        // .add_systems(Update, spawn_second)
         .add_systems(Update, system)
         .run();
 }
@@ -106,7 +108,6 @@ fn system(
     mut line_materials: ResMut<Assets<LineMaterial>>,
     mut fill_materials: ResMut<Assets<FillMaterial>>, // Add FillMaterial resource
     mut outline_materials: ResMut<Assets<OutlineMaterial>>, // Add FillMaterial resource
-
 ) {
     for event in events.read() {
         if event.parent == my_scene_entity.0 {
@@ -124,8 +125,11 @@ fn system(
                         mesh_to_wireframe(&mut new_mesh);
 
                         // Add FillMaterial component
-                        let outline_material_handle = outline_materials.add(OutlineMaterial::default());
-                        commands.entity(entity).insert(outline_material_handle.clone());
+                        let outline_material_handle =
+                            outline_materials.add(OutlineMaterial::default());
+                        commands
+                            .entity(entity)
+                            .insert(outline_material_handle.clone());
 
                         // Clone the mesh
                         let mut new_mesh = original_mesh.clone();
@@ -158,40 +162,6 @@ fn system(
     }
 }
 
-// fn system(
-//     mut commands: Commands,
-//     mut events: EventReader<SceneInstanceReady>,
-//     my_scene_entity: Res<MyScene>,
-//     children: Query<&Children>,
-//     meshes: Query<(Entity, &Handle<Mesh>)>,
-//     mut mesh_assets: ResMut<Assets<Mesh>>,
-//     mut line_materials: ResMut<Assets<LineMaterial>>,
-// ) {
-//     for event in events.read() {
-//         if event.parent == my_scene_entity.0 {
-//             for entity in children.iter_descendants(event.parent) {
-//                 if let Ok((entity, mesh_handle)) = meshes.get(entity) {
-//                     if let Some(original_mesh) = mesh_assets.get(mesh_handle) {
-//                         // Clone the mesh
-//                         let mut new_mesh = original_mesh.clone();
-//                         mesh_to_wireframe(&mut new_mesh);
-
-//                         // Add the new mesh to the assets and get a handle to it
-//                         let new_mesh_handle = mesh_assets.add(new_mesh);
-
-//                         let new_entity = commands.spawn(MaterialMeshBundle{
-//                             mesh: new_mesh_handle,
-//                             material: line_materials.add(LineMaterial::default()),
-//                             ..Default::default()
-//                         });
-
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
-
 fn mesh_to_wireframe(mesh: &mut Mesh) {
     // let mut mesh = m.clone();
 
@@ -210,6 +180,8 @@ fn mesh_to_wireframe(mesh: &mut Mesh) {
         .flat_map(|(start, end)| vec![start.position, end.position])
         .collect();
 
+    line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
     let colors: Vec<[f32; 4]> = lines
         .lines
         .iter()
@@ -217,45 +189,39 @@ fn mesh_to_wireframe(mesh: &mut Mesh) {
         .flatten()
         .collect();
 
+    line_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+
     let normal: Vec<[f32; 3]> = lines
         .lines
         .iter()
         .flat_map(|(start, end)| vec![start.normal, end.normal])
-        .flatten()
         .collect();
 
-    let joint_indices: Vec<[u16; 4]> = lines
-        .lines
-        .iter()
-        .flat_map(|(start, end)| vec![start.joint_indices, end.joint_indices])
-        .flatten()
-        .collect();
-
-    let joint_weights: Vec<[f32; 4]> = lines
-        .lines
-        .iter()
-        .flat_map(|(start, end)| vec![start.joint_weights, end.joint_weights])
-        .flatten()
-        .collect();
-
-    let joint_indices_count = joint_indices.len();
-    let joint_weights_count = joint_weights.len();
-
-    println!("{} {}", joint_indices_count, joint_weights_count);
-
-    assert_eq!(
-        joint_indices_count, joint_weights_count,
-        "Joint indices and weights must have the same length"
-    );
-
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     line_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normal);
-    line_mesh.insert_attribute(
-        Mesh::ATTRIBUTE_JOINT_INDEX,
-        VertexAttributeValues::Uint16x4(joint_indices),
-    );
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
+
+    if let Some(VertexAttributeValues::Uint16x4(_)) = mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX) {
+        let joint_indices: Vec<[u16; 4]> = lines
+            .lines
+            .iter()
+            .flat_map(|(start, end)| vec![start.joint_indices, end.joint_indices])
+            .flatten()
+            .collect();
+        line_mesh.insert_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+            VertexAttributeValues::Uint16x4(joint_indices),
+        );
+    }
+
+    if let Some(VertexAttributeValues::Float32x4(_)) = mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+    {
+        let joint_weights: Vec<[f32; 4]> = lines
+            .lines
+            .iter()
+            .flat_map(|(start, end)| vec![start.joint_weights, end.joint_weights])
+            .flatten()
+            .collect();
+        line_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
+    }
 
     *mesh = line_mesh;
 }
