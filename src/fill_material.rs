@@ -6,7 +6,7 @@ use bevy::render::render_resource::{
     AsBindGroup, Face, PolygonMode, RenderPipelineDescriptor, ShaderRef,
     SpecializedMeshPipelineError,
 };
-use bitflags::bitflags;
+// use bitflags::bitflags;
 
 
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
@@ -31,7 +31,7 @@ impl Material for FillMaterial {
         "shaders/fill.wgsl".into()
     }
 
-    fn vertex_shader() -> ShaderRef {
-        "shaders/fill.wgsl".into()
-    }
+    // fn vertex_shader() -> ShaderRef {
+    //     "shaders/fill.wgsl".into()
+    // }
 }

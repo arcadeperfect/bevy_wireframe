@@ -1,12 +1,19 @@
 use bevy::{
-    animation::animate_targets, core::FrameCount, ecs::query, gltf::GltfPlugin, pbr::wireframe::Wireframe, prelude::*, render::{
-        mesh::{skinning::SkinnedMesh, MeshVertexAttribute, VertexAttributeValues},
-        render_asset::RenderAssetUsages, render_resource::VertexFormat,
-    }, scene::{SceneInstance, SceneInstanceReady}
+    animation::animate_targets,
+    gltf::GltfPlugin,
+    prelude::*,
+    render::{
+        mesh::{skinning::SkinnedMesh, MeshVertexAttribute},
+        render_resource::VertexFormat,
+    },
+    scene::SceneInstanceReady,
 };
 use fill_material::FillMaterial;
-use line_material::{generate_edge_line_list_data, LineMaterial};
-use mesh_ops::{line_list_to_mesh, random_color_mesh, smooth_normals};
+use line_material::LineMaterial;
+use load_json::jparse;
+use mesh_ops::{
+    generate_edge_line_list, line_list_to_mesh, random_color_mesh, smooth_normals
+};
 use outline_material::OutlineMaterial;
 use std::time::Duration;
 
@@ -15,9 +22,10 @@ mod fill_material;
 mod line_material;
 mod mesh_ops;
 mod outline_material;
+mod load_json;
 
-const PATH: &str = "astro/scene.gltf";
-// const PATH: &str = "astro_custom/scene.gltf";
+// const PATH: &str = "astro/scene.gltf";
+const PATH: &str = "astro_custom/scene.gltf";
 // const PATH: &str = "sphere_flat.gltf";
 // const PATH: &str = "sphere.gltf";
 
@@ -30,22 +38,32 @@ struct WireFrameScene;
 #[derive(Component)]
 struct OriginalSceneTag;
 
+// const ATTRIBUTE_CUSTOM: MeshVertexAttribute =
+//     MeshVertexAttribute::new("Custom", 2137464976, VertexFormat::Uint32);
+
 const ATTRIBUTE_CUSTOM: MeshVertexAttribute =
     MeshVertexAttribute::new("Custom", 2137464976, VertexFormat::Float32);
 
+const ATTRIBUTE_INDEX: MeshVertexAttribute =
+    MeshVertexAttribute::new("Index", 1237464976, VertexFormat::Float32);
+
 fn main() {
+
     App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 2000.,
-        })
+        // .insert_resource(AmbientLight {
+        //     color: Color::WHITE,
+        //     brightness: 2000.,
+        // })
+        .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(
             DefaultPlugins.set(
                 GltfPlugin::default()
                     // Map a custom glTF attribute name to a `MeshVertexAttribute`.
-                    .add_custom_vertex_attribute("CUSTOM", ATTRIBUTE_CUSTOM),
+                    .add_custom_vertex_attribute("CUSTOM", ATTRIBUTE_CUSTOM)
+                    .add_custom_vertex_attribute("INDEX", ATTRIBUTE_INDEX),
             ),
-        )        .add_plugins(camera_plugin::CamPlugin)
+        )
+        .add_plugins(camera_plugin::CamPlugin)
         .add_plugins(MaterialPlugin::<FillMaterial>::default())
         .add_plugins(MaterialPlugin::<OutlineMaterial>::default())
         .add_plugins(MaterialPlugin::<LineMaterial>::default())
@@ -54,6 +72,7 @@ fn main() {
         .add_systems(Update, system)
         .run();
 }
+
 
 #[derive(Resource)]
 struct Animations {
@@ -86,21 +105,27 @@ fn setup(
         graph: graph.clone(),
     });
 
-    let newScene = SceneBundle {
+    let disco_naut_1 = SceneBundle {
         scene: assets.load(GltfAssetLabel::Scene(0).from_asset(PATH)),
         transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
         ..default()
     };
+    let entity_1 = commands.spawn((disco_naut_1, OriginalSceneTag)).id();
+    
+    // let disco_naut_2 = SceneBundle {
+    //     scene: assets.load(GltfAssetLabel::Scene(0).from_asset(PATH)),
+    //     transform: Transform::from_xyz(1.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
+    //     ..default()
+    // };
+    // let entity_2 = commands.spawn((disco_naut_2, OriginalSceneTag)).id();
 
-    let entity = commands.spawn((newScene, OriginalSceneTag)).id();
-
-    commands.insert_resource(MyScene(entity));
+    commands.insert_resource(MyScene(entity_1));
 }
 
 fn system(
     mut commands: Commands,
     mut events: EventReader<SceneInstanceReady>,
-    my_scene_entity: Res<MyScene>,
+    // my_scene_entity: Res<MyScene>,
     children: Query<&Children>,
     meshes: Query<(Entity, &Handle<Mesh>)>,
     skinned_meshes: Query<&SkinnedMesh>,
@@ -110,40 +135,44 @@ fn system(
     mut outline_materials: ResMut<Assets<OutlineMaterial>>, // Add FillMaterial resource
 ) {
     for event in events.read() {
-        if event.parent == my_scene_entity.0 {
+        // if event.parent == my_scene_entity.0 {
+        if true {
             for entity in children.iter_descendants(event.parent) {
                 if let Ok((entity, mesh_handle)) = meshes.get(entity) {
                     if let Some(original_mesh) = mesh_assets.get_mut(mesh_handle) {
                         commands.entity(entity).remove::<Handle<StandardMaterial>>();
 
-                        // randomly color the verts
                         random_color_mesh(original_mesh);
+                        smooth_normals(original_mesh);
 
                         // Add FillMaterial component
-                        let fill_material_handle = fill_materials.add(FillMaterial::default());
+                        let fill_material_handle = fill_materials.add(FillMaterial {
+                            color: Vec4::new(0.0, 0.0, 0.0, 1.0),
+                            displacement: 0.1,
+                        });
                         commands.entity(entity).insert(fill_material_handle.clone());
 
-                        // Add FillMaterial component
-                        let outline_material_handle =
-                            outline_materials.add(OutlineMaterial::default());
+                        // Add OutlineMaterial component
+                        let outline_material_handle = outline_materials.add(OutlineMaterial {
+                            outline_width: 0.05,
+                            ..default()
+                        });
                         commands
                             .entity(entity)
                             .insert(outline_material_handle.clone());
 
-                        // Clone the mesh
                         let mut new_mesh = original_mesh.clone();
+                        smooth_normals(&mut new_mesh);
                         mesh_to_wireframe(&mut new_mesh);
-
-                        // Add the new mesh to the assets and get a handle to it
                         let new_mesh_handle = mesh_assets.add(new_mesh);
-
-                        // Get the SkinnedMesh component if it exists
                         let skinned_mesh = skinned_meshes.get(entity).cloned();
 
-                        // Prepare the bundle
                         let mut bundle = MaterialMeshBundle {
                             mesh: new_mesh_handle,
-                            material: line_materials.add(LineMaterial::default()),
+                            material: line_materials.add(LineMaterial{
+                                displacement: 1.5,
+                                ..default()
+                            }),
                             ..Default::default()
                         };
 
@@ -162,11 +191,10 @@ fn system(
 }
 
 fn mesh_to_wireframe(mesh: &mut Mesh) {
-    
     random_color_mesh(mesh);
     // smooth_normals(mesh);
 
-    let line_list = generate_edge_line_list_data(&mesh);
+    let line_list = generate_edge_line_list(&mesh, true);
     let line_mesh = line_list_to_mesh(&line_list, mesh);
 
     *mesh = line_mesh;
@@ -178,7 +206,6 @@ fn play_animation_once_loaded(
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     for (entity, mut player) in &mut players {
-        println!("animation player added");
         let mut transitions = AnimationTransitions::new();
 
         // Make sure to start the animation via the `AnimationTransitions`
@@ -196,46 +223,3 @@ fn play_animation_once_loaded(
     }
 }
 
-// fn system(
-//     mut commands: Commands,
-//     assets: Res<AssetServer>,
-
-//     mut events: EventReader<SceneInstanceReady>,
-//     my_scene_entity: Res<MyScene>,
-//     children: Query<&Children>,
-//     scene_instances: Query<&SceneInstance>,
-//     scenes: Query<(Entity, &Handle<Scene>)>,
-//     // mut meshes: Query<&mut Mesh>,
-//     mut meshes: Query<(Entity, &Handle<Mesh>)>,
-//     mut mesh_assets: ResMut<Assets<Mesh>>,
-//     mut scene_spawner: ResMut<SceneSpawner>,
-
-// ) {
-//     for event in events.read() {
-//         if event.parent == my_scene_entity.0 {
-//             if let Ok(scene_instance) = scene_instances.get(event.parent) {
-//                 println!("Found scene instance");
-
-//                 if let Ok((entity, scene_handle)) = scenes.get(event.parent) {
-//                     let cloned_scene_handle = scene_handle.clone();
-
-//                     let new_scene_bundle = SceneBundle {
-//                         scene: scene_handle.clone(),
-//                         transform: Transform::from_xyz(1.0, 0.0, 0.0),
-//                         ..default()
-//                     };
-
-//                     let new_entity = commands.spawn(new_scene_bundle).id();
-//                 }
-//             }
-
-//             for entity in children.iter_descendants(event.parent) {
-//                 if let Ok((entity, mesh_handle)) = meshes.get(entity) {
-//                     if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {
-//                         mesh_to_wireframe(mesh);
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }

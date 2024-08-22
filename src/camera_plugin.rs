@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{core_pipeline::{bloom::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings}, tonemapping::Tonemapping}, prelude::*};
 
 pub struct CamPlugin;
 
@@ -15,9 +15,32 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Camera3dBundle {
+            camera: Camera {
+                hdr: true, // 1. HDR is required for bloom
+                ..default()
+            },
+            tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+
             transform: Transform::from_xyz(0.0, h, 5.0).looking_at(Vec3::new(0., h, 0.), Vec3::Y),
+
             ..default()
         },
+
+        BloomSettings::NATURAL,
+
+        // BloomSettings{
+        //     // intensity: 0.65,
+        //     intensity: 1.0,
+        //     low_frequency_boost: 0.2,
+        //     low_frequency_boost_curvature: 0.95,
+        //     high_pass_frequency: 1.0,
+        //     prefilter_settings: BloomPrefilterSettings {
+        //         threshold: 0.0,
+        //         threshold_softness: 0.0,
+        //     },
+        //     composite_mode: BloomCompositeMode::EnergyConserving,
+        // },
+
         OrbitCamera {
             radius: 5.0,
             speed: 1.0,
@@ -38,6 +61,12 @@ struct OrbitCamera {
     speed: f32,
 }
 
+
+
+
+
+
+
 fn rotate_camera(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &OrbitCamera, &mut RotationEnabled), With<Camera>>,
@@ -56,8 +85,10 @@ fn rotate_camera(
             let x = orbit.radius * angle.cos();
             let z = orbit.radius * angle.sin();
 
-            transform.translation = Vec3::new(x, 0.0, z);
-            transform.look_at(Vec3::ZERO, Vec3::Y);
+            let y = 1.5;
+
+            transform.translation = Vec3::new(x, y, z);
+            transform.look_at(Vec3::new(0., y, 0.), Vec3::Y);
         }
     }
 }

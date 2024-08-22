@@ -1,4 +1,4 @@
-use bitflags::bitflags;
+// use bitflags::bitflags;
 use bevy::app::DynEq;
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
@@ -8,13 +8,13 @@ use bevy::render::render_resource::{
     SpecializedMeshPipelineError,
 };
 
-bitflags! {
-    /// Bitflags representing the configuration for the `OutlineMaterial`.
-    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-    pub struct OutlineMaterialKey: u64 {
-        const USE_VERTEX_COLOR = 0x0001;
-    }
-}
+// bitflags! {
+//     /// Bitflags representing the configuration for the `OutlineMaterial`.
+//     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+//     pub struct OutlineMaterialKey: u64 {
+//         const USE_VERTEX_COLOR = 0x0001;
+//     }
+// }
 
 
 

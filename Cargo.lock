@@ -317,16 +317,6 @@ dependencies = [
 
 [[package]]
 name = "bevy_animation"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bitflags 2.6.0",
- "bytemuck",
- "rand",
-]
-
-[[package]]
-name = "bevy_animation"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abec61c2d9d19329d8d9f0d7f1ce0188f6ed2c6d74d90412b238efc38c7d7794"
@@ -617,7 +607,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb57239cb4209e52354268062cd1973892af3a2077ccbdb4d19259cbbc2d2c2d"
 dependencies = [
  "base64 0.22.1",
- "bevy_animation 0.14.1",
+ "bevy_animation",
  "bevy_app",
  "bevy_asset",
  "bevy_color",
@@ -677,7 +667,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2463102e46d7d67440dbfe3bc97d34bf529c93191c4f4bb41395f4982062ff3"
 dependencies = [
  "bevy_a11y",
- "bevy_animation 0.14.1",
+ "bevy_animation",
  "bevy_app",
  "bevy_asset",
  "bevy_audio",
@@ -1121,6 +1111,16 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
  "winit",
+]
+
+[[package]]
+name = "bevy_wireframe"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "rand",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
