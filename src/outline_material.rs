@@ -1,10 +1,9 @@
 // use bitflags::bitflags;
-use bevy::app::DynEq;
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
-use bevy::render::mesh::{MeshVertexBufferLayout, MeshVertexBufferLayoutRef};
+use bevy::render::mesh::MeshVertexBufferLayoutRef;
 use bevy::render::render_resource::{
-    AsBindGroup, Face, PolygonMode, RenderPipelineDescriptor, ShaderRef,
+    AsBindGroup, RenderPipelineDescriptor, ShaderRef,
     SpecializedMeshPipelineError,
 };
 

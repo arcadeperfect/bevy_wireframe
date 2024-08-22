@@ -1,24 +1,10 @@
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::{
-            Indices, MeshVertexAttribute, MeshVertexBufferLayoutRef, PrimitiveTopology,
-            VertexAttributeValues,
+    render::render_resource::{
+            AsBindGroup, ShaderRef,
         },
-        render_asset::RenderAssetUsages,
-        render_resource::{
-            AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
-            SpecializedMeshPipelineError, VertexFormat,
-        },
-    },
-    utils::HashSet,
 };
-
-use std::hash::{Hash, Hasher};
-
-use crate::{mesh_ops::Vert, ATTRIBUTE_CUSTOM};
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct LineMaterial {

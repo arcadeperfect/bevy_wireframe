@@ -10,56 +10,40 @@ use bevy::{
 };
 use fill_material::FillMaterial;
 use line_material::LineMaterial;
-use load_json::jparse;
-use mesh_ops::{
-    generate_edge_line_list, line_list_to_mesh, random_color_mesh, smooth_normals
-};
+use mesh_ops::{mesh_to_wireframe, random_color_mesh, smooth_normals};
 use outline_material::OutlineMaterial;
 use std::time::Duration;
 
 mod camera_plugin;
 mod fill_material;
 mod line_material;
+mod load_json;
 mod mesh_ops;
 mod outline_material;
-mod load_json;
 
 // const PATH: &str = "astro/scene.gltf";
 const PATH: &str = "astro_custom/scene.gltf";
 // const PATH: &str = "sphere_flat.gltf";
 // const PATH: &str = "sphere.gltf";
 
-#[derive(Resource)]
-struct MyScene(Entity);
+// #[derive(Resource)]
+// struct MyScene(Entity);
 
-#[derive(Component)]
-struct WireFrameScene;
+// #[derive(Component)]
+// struct WireFrameScene;
 
 #[derive(Component)]
 struct OriginalSceneTag;
-
-// const ATTRIBUTE_CUSTOM: MeshVertexAttribute =
-//     MeshVertexAttribute::new("Custom", 2137464976, VertexFormat::Uint32);
-
-const ATTRIBUTE_CUSTOM: MeshVertexAttribute =
-    MeshVertexAttribute::new("Custom", 2137464976, VertexFormat::Float32);
 
 const ATTRIBUTE_INDEX: MeshVertexAttribute =
     MeshVertexAttribute::new("Index", 1237464976, VertexFormat::Float32);
 
 fn main() {
-
     App::new()
-        // .insert_resource(AmbientLight {
-        //     color: Color::WHITE,
-        //     brightness: 2000.,
-        // })
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(
             DefaultPlugins.set(
                 GltfPlugin::default()
-                    // Map a custom glTF attribute name to a `MeshVertexAttribute`.
-                    .add_custom_vertex_attribute("CUSTOM", ATTRIBUTE_CUSTOM)
                     .add_custom_vertex_attribute("INDEX", ATTRIBUTE_INDEX),
             ),
         )
@@ -69,10 +53,9 @@ fn main() {
         .add_plugins(MaterialPlugin::<LineMaterial>::default())
         .add_systems(Startup, setup)
         .add_systems(Update, play_animation_once_loaded.before(animate_targets))
-        .add_systems(Update, system)
+        .add_systems(Update, process_scene)
         .run();
 }
-
 
 #[derive(Resource)]
 struct Animations {
@@ -110,22 +93,19 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
         ..default()
     };
-    let entity_1 = commands.spawn((disco_naut_1, OriginalSceneTag)).id();
-    
+    let _entity_1 = commands.spawn((disco_naut_1, OriginalSceneTag)).id();
+
     // let disco_naut_2 = SceneBundle {
     //     scene: assets.load(GltfAssetLabel::Scene(0).from_asset(PATH)),
     //     transform: Transform::from_xyz(1.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
     //     ..default()
     // };
     // let entity_2 = commands.spawn((disco_naut_2, OriginalSceneTag)).id();
-
-    commands.insert_resource(MyScene(entity_1));
 }
 
-fn system(
+fn process_scene(
     mut commands: Commands,
     mut events: EventReader<SceneInstanceReady>,
-    // my_scene_entity: Res<MyScene>,
     children: Query<&Children>,
     meshes: Query<(Entity, &Handle<Mesh>)>,
     skinned_meshes: Query<&SkinnedMesh>,
@@ -167,9 +147,9 @@ fn system(
                         let new_mesh_handle = mesh_assets.add(new_mesh);
                         let skinned_mesh = skinned_meshes.get(entity).cloned();
 
-                        let mut bundle = MaterialMeshBundle {
+                        let bundle = MaterialMeshBundle {
                             mesh: new_mesh_handle,
-                            material: line_materials.add(LineMaterial{
+                            material: line_materials.add(LineMaterial {
                                 displacement: 1.5,
                                 ..default()
                             }),
@@ -188,16 +168,6 @@ fn system(
             }
         }
     }
-}
-
-fn mesh_to_wireframe(mesh: &mut Mesh) {
-    random_color_mesh(mesh);
-    // smooth_normals(mesh);
-
-    let line_list = generate_edge_line_list(&mesh, true);
-    let line_mesh = line_list_to_mesh(&line_list, mesh);
-
-    *mesh = line_mesh;
 }
 
 fn play_animation_once_loaded(
@@ -222,4 +192,3 @@ fn play_animation_once_loaded(
             .insert(transitions);
     }
 }
-

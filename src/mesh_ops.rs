@@ -2,15 +2,24 @@ use bevy::{
     math::Vec3,
     prelude::Mesh,
     render::{
-        mesh::{Indices, MeshVertexAttribute, VertexAttributeValues},
+        mesh::{Indices, VertexAttributeValues},
         render_asset::RenderAssetUsages,
-        render_resource::VertexFormat,
     },
     utils::{HashMap, HashSet},
 };
 use rand::Rng;
 
-use crate::{load_json::jparse, ATTRIBUTE_CUSTOM, ATTRIBUTE_INDEX};
+use crate::{load_json::jparse, ATTRIBUTE_INDEX};
+
+pub fn mesh_to_wireframe(mesh: &mut Mesh) {
+    random_color_mesh(mesh);
+    // smooth_normals(mesh);
+
+    let line_list = generate_edge_line_list(&mesh, true);
+    let line_mesh = line_list_to_mesh(&line_list, mesh);
+
+    *mesh = line_mesh;
+}
 
 pub fn random_color_mesh(mesh: &mut Mesh) {
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
@@ -259,14 +268,14 @@ pub fn generate_edge_line_list(mesh: &Mesh, use_custom_attr: bool) -> LineList {
                 }
             }
         } else {
-            return generate_edge_line_list_old(mesh);
+            return triangles_to_line_list(mesh);
         }
     }
 
     line_list
 }
 
-fn generate_edge_line_list_old(mesh: &Mesh) -> LineList {
+fn triangles_to_line_list(mesh: &Mesh) -> LineList {
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 
@@ -308,38 +317,27 @@ fn generate_edge_line_list_old(mesh: &Mesh) -> LineList {
                 }
             });
 
-        let custom = mesh.attribute(ATTRIBUTE_CUSTOM).and_then(|attr| {
-            if let VertexAttributeValues::Float32(values) = attr {
-                Some(values)
-            } else {
-                None
-            }
-        });
-
         let mut process_triangle = |a: u32, b: u32, c: u32| {
             let mut add_edge = |v1: u32, v2: u32| {
-
-                if (true) {
-                    let edge = if v1 < v2 { (v1, v2) } else { (v2, v1) };
-                    if edge_set.insert(edge) {
-                        let i1 = v1 as usize;
-                        let i2 = v2 as usize;
-                        let start = Vert {
-                            position: positions[i1],
-                            normal: normals[i1],
-                            color: colors.map(|c| c[i1]),
-                            joint_indices: joint_indices.map(|ji| ji[i1]),
-                            joint_weights: joint_weights.map(|jw| jw[i1]),
-                        };
-                        let end = Vert {
-                            position: positions[i2],
-                            normal: normals[i2],
-                            color: colors.map(|c| c[i2]),
-                            joint_indices: joint_indices.map(|ji| ji[i2]),
-                            joint_weights: joint_weights.map(|jw| jw[i2]),
-                        };
-                        line_list.lines.push((start, end));
-                    }
+                let edge = if v1 < v2 { (v1, v2) } else { (v2, v1) };
+                if edge_set.insert(edge) {
+                    let i1 = v1 as usize;
+                    let i2 = v2 as usize;
+                    let start = Vert {
+                        position: positions[i1],
+                        normal: normals[i1],
+                        color: colors.map(|c| c[i1]),
+                        joint_indices: joint_indices.map(|ji| ji[i1]),
+                        joint_weights: joint_weights.map(|jw| jw[i1]),
+                    };
+                    let end = Vert {
+                        position: positions[i2],
+                        normal: normals[i2],
+                        color: colors.map(|c| c[i2]),
+                        joint_indices: joint_indices.map(|ji| ji[i2]),
+                        joint_weights: joint_weights.map(|jw| jw[i2]),
+                    };
+                    line_list.lines.push((start, end));
                 }
             };
 

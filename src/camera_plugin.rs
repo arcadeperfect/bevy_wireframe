@@ -1,4 +1,4 @@
-use bevy::{core_pipeline::{bloom::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings}, tonemapping::Tonemapping}, prelude::*};
+use bevy::{core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping}, prelude::*};
 
 pub struct CamPlugin;
 
