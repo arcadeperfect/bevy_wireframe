@@ -7,21 +7,43 @@ use bevy::{
     },
     utils::{HashMap, HashSet},
 };
-use rand::Rng;
 
-use crate::{load_json::jparse, ATTRIBUTE_INDEX};
+
+
+use rand::Rng;
+use tracing::warn;
+
+use crate::{
+    load_json::{jparse, JsonLineList},
+    ATTRIBUTE_INDEX,
+};
 
 pub fn mesh_to_wireframe(mesh: &mut Mesh) {
-    random_color_mesh(mesh);
+    apply_random_vertex_colors(mesh);
     // smooth_normals(mesh);
 
-    let line_list = generate_edge_line_list(&mesh, true);
+    // let line_list = generate_edge_line_list(&mesh, true);
+
+    let j = jparse();
+    let line_list = mesh.mesh_to_line_list_custom(j);
+    // let line_list = mesh.mesh_to_line_list();
+
     let line_mesh = line_list_to_mesh(&line_list, mesh);
 
     *mesh = line_mesh;
 }
 
-pub fn random_color_mesh(mesh: &mut Mesh) {
+pub trait RandomizeVertexColors {
+    fn randomize_vertex_colors(&mut self);
+}
+
+impl RandomizeVertexColors for Mesh {
+    fn randomize_vertex_colors(&mut self) {
+        apply_random_vertex_colors(self);
+    }
+}
+
+fn apply_random_vertex_colors(mesh: &mut Mesh) {
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
     let mut unique_positions: Vec<([f32; 3], [f32; 4])> = Vec::new();
 
@@ -61,8 +83,17 @@ fn vec3_approx_eq(a: [f32; 3], b: [f32; 3]) -> bool {
     const EPSILON: f32 = 1e-5;
     (a[0] - b[0]).abs() < EPSILON && (a[1] - b[1]).abs() < EPSILON && (a[2] - b[2]).abs() < EPSILON
 }
+pub trait SmoothNormals {
+    fn smooth_normals(&mut self);
+}
 
-pub fn smooth_normals(mesh: &mut Mesh) {
+impl SmoothNormals for Mesh {
+    fn smooth_normals(&mut self) {
+        smooth_normals(self);
+    }
+}
+
+fn smooth_normals(mesh: &mut Mesh) {
     if let (
         Some(VertexAttributeValues::Float32x3(positions)),
         Some(VertexAttributeValues::Float32x3(normals)),
@@ -103,6 +134,50 @@ pub fn smooth_normals(mesh: &mut Mesh) {
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, new_normals);
     }
 }
+
+// fn flat_normals(mesh: &mut Mesh) {
+//     if let (
+//         Some(VertexAttributeValues::Float32x3(positions)),
+//         Some(indices)
+//     ) = (
+//         mesh.attribute(Mesh::ATTRIBUTE_POSITION),
+//         mesh.indices()
+//     ) {
+//         let mut flat_normals = vec![[0.0; 3]; positions.len()];
+
+//         let index_iter: Box<dyn Iterator<Item = usize>> = match indices {
+//             Indices::U16(vec) => Box::new(vec.iter().map(|&i| i as usize)),
+//             Indices::U32(vec) => Box::new(vec.iter().map(|&i| i as usize)),
+//         };
+
+//         // Process each triangle
+//         for triangle in index_iter.chunks(3) {
+//             let triangle: Vec<usize> = triangle.collect();
+//             if triangle.len() != 3 {
+//                 continue; // Skip if we don't have a full triangle
+//             }
+
+//             let i1 = triangle[0];
+//             let i2 = triangle[1];
+//             let i3 = triangle[2];
+
+//             let v1 = Vec3::from(positions[i1]);
+//             let v2 = Vec3::from(positions[i2]);
+//             let v3 = Vec3::from(positions[i3]);
+
+//             // Calculate the normal for this face
+//             let normal = (v2 - v1).cross(v3 - v1).normalize();
+
+//             // Assign this normal to all vertices of the triangle
+//             flat_normals[i1] = normal.to_array();
+//             flat_normals[i2] = normal.to_array();
+//             flat_normals[i3] = normal.to_array();
+//         }
+
+//         // Update the mesh with new flat normals
+//         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, flat_normals);
+//     }
+// }
 
 pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
     let mut line_mesh = Mesh::new(
@@ -176,11 +251,29 @@ pub struct Vert {
     pub joint_weights: Option<[f32; 4]>,
 }
 
-pub fn generate_edge_line_list(mesh: &Mesh, use_custom_attr: bool) -> LineList {
+pub trait mesh_to_line_list {
+    fn mesh_to_line_list(&self) -> LineList;
+}
+
+impl mesh_to_line_list for Mesh {
+    fn mesh_to_line_list(&self) -> LineList {
+        mesh_to_line_list(self)
+    }
+}
+
+pub trait mesh_to_line_list_custom {
+    fn mesh_to_line_list_custom(&self, data: JsonLineList) -> LineList;
+}
+
+impl mesh_to_line_list_custom for Mesh {
+    fn mesh_to_line_list_custom(&self, data: JsonLineList) -> LineList {
+        mesh_to_line_list_custom(self, data)
+    }
+}
+
+fn mesh_to_line_list_custom(mesh: &Mesh, data: JsonLineList) -> LineList {
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
-
-    let json_line_list = jparse();
 
     if let (
         Some(VertexAttributeValues::Float32x3(positions)),
@@ -193,7 +286,7 @@ pub fn generate_edge_line_list(mesh: &Mesh, use_custom_attr: bool) -> LineList {
             if let VertexAttributeValues::Float32x4(values) = attr {
                 Some(values)
             } else {
-                println!("invalid attribute format");
+                warn!("ATTRIBUTE_COLOR: invalid attribute format");
                 None
             }
         });
@@ -204,7 +297,7 @@ pub fn generate_edge_line_list(mesh: &Mesh, use_custom_attr: bool) -> LineList {
                 if let VertexAttributeValues::Uint16x4(values) = attr {
                     Some(values)
                 } else {
-                    println!("invalid attribute format");
+                    warn!("ATTRIBUTE_JOINT_INDEX: invalid attribute format");
                     None
                 }
             });
@@ -215,14 +308,13 @@ pub fn generate_edge_line_list(mesh: &Mesh, use_custom_attr: bool) -> LineList {
                 if let VertexAttributeValues::Float32x4(values) = attr {
                     Some(values)
                 } else {
-                    println!("invalid attribute format");
+                    warn!("ATTRIBUTE_JOINT_WEIGHT: invalid attribute format");
                     None
                 }
             });
 
         let index = mesh.attribute(ATTRIBUTE_INDEX).and_then(|attr| {
             if let VertexAttributeValues::Float32(values) = attr {
-                println!("found index attr");
                 Some(values)
             } else {
                 None
@@ -237,45 +329,40 @@ pub fn generate_edge_line_list(mesh: &Mesh, use_custom_attr: bool) -> LineList {
             }
         }
 
-        if use_custom_attr {
-            // Process the JSON line list
-            for &[index1, index2] in &json_line_list.line_list {
-                if let (Some(&v1), Some(&v2)) =
-                    (index_to_vertex.get(&index1), index_to_vertex.get(&index2))
-                {
-                    let edge = if v1 < v2 { (v1, v2) } else { (v2, v1) };
-                    if edge_set.insert(edge) {
-                        let i1 = v1 as usize;
-                        let i2 = v2 as usize;
-                        let start = Vert {
-                            position: positions[i1],
-                            normal: normals[i1],
-                            color: colors.map(|c| c[i1]),
-                            joint_indices: joint_indices.map(|ji| ji[i1]),
-                            joint_weights: joint_weights.map(|jw| jw[i1]),
-                        };
-                        let end = Vert {
-                            position: positions[i2],
-                            normal: normals[i2],
-                            color: colors.map(|c| c[i2]),
-                            joint_indices: joint_indices.map(|ji| ji[i2]),
-                            joint_weights: joint_weights.map(|jw| jw[i2]),
-                        };
-                        line_list.lines.push((start, end));
-                    }
-                } else {
-                    println!("Warning: INDEX {} or {} not found in mesh", index1, index2);
+        // Process the JSON line list
+        for &[index1, index2] in &data.line_list {
+            if let (Some(&v1), Some(&v2)) =
+                (index_to_vertex.get(&index1), index_to_vertex.get(&index2))
+            {
+                let edge = if v1 < v2 { (v1, v2) } else { (v2, v1) };
+                if edge_set.insert(edge) {
+                    let i1 = v1 as usize;
+                    let i2 = v2 as usize;
+                    let start = Vert {
+                        position: positions[i1],
+                        normal: normals[i1],
+                        color: colors.map(|c| c[i1]),
+                        joint_indices: joint_indices.map(|ji| ji[i1]),
+                        joint_weights: joint_weights.map(|jw| jw[i1]),
+                    };
+                    let end = Vert {
+                        position: positions[i2],
+                        normal: normals[i2],
+                        color: colors.map(|c| c[i2]),
+                        joint_indices: joint_indices.map(|ji| ji[i2]),
+                        joint_weights: joint_weights.map(|jw| jw[i2]),
+                    };
+                    line_list.lines.push((start, end));
                 }
+            } else {
+                warn!("Warning: INDEX {} or {} not found in mesh", index1, index2);
             }
-        } else {
-            return triangles_to_line_list(mesh);
         }
     }
-
     line_list
 }
 
-fn triangles_to_line_list(mesh: &Mesh) -> LineList {
+fn mesh_to_line_list(mesh: &Mesh) -> LineList {
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 

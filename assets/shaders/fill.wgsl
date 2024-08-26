@@ -4,11 +4,16 @@
     morph::morph,
     forward_io::{Vertex, VertexOutput},
     view_transformations::position_world_to_clip,
+    view_transformations::position_view_to_world,
+
+    mesh_view_bindings::view
 }
 
 struct FillMaterial {
     color: vec4<f32>,
     displacement: f32,
+    shininess: f32,
+    specular_strength: f32
 };
 
 @group(2) @binding(0)
@@ -67,8 +72,12 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_POSITIONS
-    out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
-    out.position = position_world_to_clip(out.world_position.xyz + vertex.normal * -0.01);
+    // let displaced_position = vertex.position + vertex.normal * material.displacement;
+    // let displaced_position = vertex.position + vertex.normal * -10;
+
+    let world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
+    out.world_position = world_position;
+    out.position = position_world_to_clip(out.world_position.xyz + vertex.normal * -material.displacement); 
 #endif
 
 #ifdef VERTEX_UVS_A
@@ -98,18 +107,141 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.instance_index = vertex_no_morph.instance_index;
 #endif
 
-#ifdef VISIBILITY_RANGE_DITHER
-    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
-        vertex_no_morph.instance_index, world_from_local[3]);
-#endif
+// #ifdef VISIBILITY_RANGE_DITHER
+//     out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+//         vertex_no_morph.instance_index, world_from_local[3]);
+// #endif
 
     return out;
 }
 
+// @fragment
+// fn fragment(
+//     mesh: VertexOutput,
+// ) -> @location(0) vec4<f32> {
+
+//     return material.color;
+// }
 @fragment
 fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
+    
 
-    return material.color;
+     // Calculate camera position in world space
+    let camera_position = position_view_to_world(vec3(0.0, 0.0, 0.0));
+    
+    // Calculate light direction from camera to fragment
+    let light_dir = normalize(camera_position - mesh.world_position.xyz);
+    
+    // Hard-coded light color (white)
+    let light_color = vec3(1.0, 1.0, 1.0);
+    
+    // Calculate view direction (from fragment to camera)
+    let view_dir = light_dir;  // Since light is coming from camera, view_dir is opposite of light_dir
+    
+    // Ensure the normal is normalized
+    let normal = normalize(mesh.world_normal);
+    
+    // Calculate the diffuse factor
+    let diffuse_factor = max(dot(normal, light_dir), 0.0);
+    
+    // Calculate the halfway vector for Blinn-Phong
+    let halfway_dir = normalize(light_dir + view_dir);
+    
+    // Calculate the specular factor
+    let specular_factor = pow(max(dot(normal, halfway_dir), 0.0), material.shininess);
+    
+    // Calculate the diffuse color
+    let diffuse_color = light_color * diffuse_factor;
+    
+    // Calculate the specular color
+    let specular_color = light_color * specular_factor * material.specular_strength;
+    
+    // Combine the material color with the lighting
+    let lighting_color = material.color.rgb * (diffuse_color + 0.2) + specular_color;
+    
+    // Multiply with vertex color
+    let final_color = lighting_color * mesh.color.rgb;
+    
+    return vec4<f32>(final_color, material.color.a * mesh.color.a);
+    // return vec4<f32>(camera_position, material.color.a);
+
+
+////////////////
+
+    //  // Extract camera position from the inverse view matrix
+    // let camera_position = view.inverse[3].xyz;
+    
+    // // Calculate light direction from camera to fragment
+    // let light_dir = normalize(camera_position - mesh.world_position.xyz);
+    
+    // // Hard-coded light color (white)
+    // let light_color = vec3(1.0, 1.0, 1.0);
+    
+    // // Calculate view direction (from fragment to camera)
+    // let view_dir = -light_dir;  // Since light is coming from camera, view_dir is opposite of light_dir
+    
+    // // Ensure the normal is normalized
+    // let normal = normalize(mesh.world_normal);
+    
+    // // Calculate the diffuse factor
+    // let diffuse_factor = max(dot(normal, light_dir), 0.0);
+    
+    // // Calculate the halfway vector for Blinn-Phong
+    // let halfway_dir = normalize(light_dir + view_dir);
+    
+    // // Calculate the specular factor
+    // let specular_factor = pow(max(dot(normal, halfway_dir), 0.0), material.shininess);
+    
+    // // Calculate the diffuse color
+    // let diffuse_color = light_color * diffuse_factor;
+    
+    // // Calculate the specular color
+    // let specular_color = light_color * specular_factor * material.specular_strength;
+    
+    // // Combine the material color with the lighting
+    // let lighting_color = material.color.rgb * (diffuse_color + 0.2) + specular_color;
+    
+    // // Multiply with vertex color
+    // let final_color = lighting_color * mesh.color.rgb;
+    
+    // return vec4<f32>(final_color, material.color.a * mesh.color.a);
+
+/////////////
+
+    // // Hard-coded light direction (pointing downwards and slightly to the side)
+    // let light_dir = normalize(vec3(0.5, -1.0, 0.2));
+    
+    // // Hard-coded light color (white)
+    // let light_color = vec3(1.0, 1.0, 1.0);
+    
+    // // Hard-coded view direction (assuming the viewer is looking straight at the object)
+    // let view_dir = normalize(vec3(0.0, 0.0, 1.0));
+    
+    // // Ensure the normal is normalized
+    // let normal = normalize(mesh.world_normal);
+    
+    // // Calculate the diffuse factor
+    // let diffuse_factor = max(dot(normal, -light_dir), 0.0);
+    
+    // // Calculate the halfway vector for Blinn-Phong
+    // let halfway_dir = normalize(-light_dir + view_dir);
+    
+    // // Calculate the specular factor
+    // let specular_factor = pow(max(dot(normal, halfway_dir), 0.0), 200.0);
+    
+    // // Calculate the diffuse color
+    // let diffuse_color = light_color * diffuse_factor;
+    
+    // // Calculate the specular color
+    // let specular_color = light_color * specular_factor * 1.0;
+    
+    // // Combine the material color with the lighting
+    // let lighting_color = material.color.rgb * (diffuse_color + 0.2) + specular_color;
+    
+    // // Multiply with vertex color
+    // let final_color = lighting_color * mesh.color.rgb;
+    
+    // return vec4<f32>(final_color, 1.0 * mesh.color.a);
 }

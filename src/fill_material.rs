@@ -11,6 +11,10 @@ pub struct FillMaterial {
     pub color: Vec4,
     #[uniform(0)]
     pub displacement: f32,
+    #[uniform(0)]
+    pub shininess: f32,
+    #[uniform(0)]
+    pub specular_strength: f32,
 }
 
 impl Default for FillMaterial {
@@ -18,6 +22,8 @@ impl Default for FillMaterial {
         Self {
             color: Vec4::new(0.0, 0.0, 0.0, 1.0),
             displacement: 0.1,
+            shininess: 200.0,
+            specular_strength: 1.0,
         }
     }
 }
@@ -27,7 +33,7 @@ impl Material for FillMaterial {
         "shaders/fill.wgsl".into()
     }
 
-    // fn vertex_shader() -> ShaderRef {
-    //     "shaders/fill.wgsl".into()
-    // }
+    fn vertex_shader() -> ShaderRef {
+        "shaders/fill.wgsl".into()
+    }
 }

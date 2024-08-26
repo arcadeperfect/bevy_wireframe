@@ -92,7 +92,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_POSITIONS
-    vertex.position = vertex.position + (vertex.normal * (material.displacement * 0.15 + 0.001));
+    vertex.position = vertex.position + (vertex.normal * (material.displacement * 0.02 + 0.001));
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
     out.position = position_world_to_clip(out.world_position.xyz);
 #endif

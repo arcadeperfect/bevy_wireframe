@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Your Bevy App</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="module">
+        import init from '../target/wasm32-unknown-unknown/release/out/bevy_wireframe.js';
+        init().then(() => {
+            console.log('WASM loaded');
+        });
+    </script>
+</body>
+</html>

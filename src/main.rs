@@ -1,18 +1,16 @@
 use bevy::{
-    animation::animate_targets,
-    gltf::GltfPlugin,
-    prelude::*,
-    render::{
+    animation::animate_targets, core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping}, gltf::GltfPlugin, prelude::*, render::{
         mesh::{skinning::SkinnedMesh, MeshVertexAttribute},
         render_resource::VertexFormat,
-    },
-    scene::SceneInstanceReady,
+    }, scene::SceneInstanceReady
 };
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use fill_material::FillMaterial;
 use line_material::LineMaterial;
-use mesh_ops::{mesh_to_wireframe, random_color_mesh, smooth_normals};
+use mesh_ops::{mesh_to_wireframe, RandomizeVertexColors, SmoothNormals};
 use outline_material::OutlineMaterial;
 use std::time::Duration;
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
 mod camera_plugin;
 mod fill_material;
@@ -32,6 +30,27 @@ const PATH: &str = "astro_custom/scene.gltf";
 // #[derive(Component)]
 // struct WireFrameScene;
 
+#[derive(Resource)]
+struct ShaderSettings{
+    outline_width: f32,
+    wireframe_displacement: f32,
+    fill_displacement: f32,
+    fill_shininess: f32,
+    fill_specular_strength: f32
+}
+
+impl Default for ShaderSettings {
+    fn default() -> Self {
+        Self {
+            outline_width: 0.1,
+            wireframe_displacement: 0.0,
+            fill_displacement: 0.0,
+            fill_shininess: 0.0,
+            fill_specular_strength: 0.0
+        }
+    }
+}
+
 #[derive(Component)]
 struct OriginalSceneTag;
 
@@ -41,19 +60,22 @@ const ATTRIBUTE_INDEX: MeshVertexAttribute =
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ShaderSettings::default())
         .add_plugins(
-            DefaultPlugins.set(
-                GltfPlugin::default()
-                    .add_custom_vertex_attribute("INDEX", ATTRIBUTE_INDEX),
-            ),
+            DefaultPlugins
+                .set(GltfPlugin::default().add_custom_vertex_attribute("INDEX", ATTRIBUTE_INDEX)),
         )
-        .add_plugins(camera_plugin::CamPlugin)
+        .add_plugins(EguiPlugin)
+        .add_plugins(PanOrbitCameraPlugin)
         .add_plugins(MaterialPlugin::<FillMaterial>::default())
         .add_plugins(MaterialPlugin::<OutlineMaterial>::default())
         .add_plugins(MaterialPlugin::<LineMaterial>::default())
         .add_systems(Startup, setup)
         .add_systems(Update, play_animation_once_loaded.before(animate_targets))
         .add_systems(Update, process_scene)
+        .add_systems(Update, ui_system)  // Add this line
+        // .add_systems(Update, ui_example_system)  // Add this line
+        
         .run();
 }
 
@@ -64,11 +86,105 @@ struct Animations {
     graph: Handle<AnimationGraph>,
 }
 
+fn ui_system(
+    mut contexts: EguiContexts,
+    mut shader_settings: ResMut<ShaderSettings>,
+    mut outline_materials_assets: ResMut<Assets<OutlineMaterial>>,
+    outline_materials: Query<&Handle<OutlineMaterial>>,
+    mut line_materials_assets: ResMut<Assets<LineMaterial>>,
+    line_materials: Query<&Handle<LineMaterial>>,
+    mut fill_materials_assets: ResMut<Assets<FillMaterial>>,
+    fill_materials: Query<&Handle<FillMaterial>>,
+) {
+    egui::Window::new("Shader Controls").show(contexts.ctx_mut(), |ui| {
+        ui.add(egui::Slider::new(&mut shader_settings.outline_width, 0.0..=1.0).text("Outline Width"));
+        ui.add(egui::Slider::new(&mut shader_settings.wireframe_displacement, 0.0..=1.0).text("Wireframe Displacement"));
+        ui.add(egui::Slider::new(&mut shader_settings.fill_displacement, 0.0..=1.0).text("Fill Displacement"));
+        ui.add(egui::Slider::new(&mut shader_settings.fill_shininess, 1.0..=256.0).text("Shininess"));
+        ui.add(egui::Slider::new(&mut shader_settings.fill_specular_strength, 0.0..=1.0).text("Specular Strength"));
+    });
+
+    // Update all OutlineMaterial instances
+    for material_handle in outline_materials.iter() {
+        if let Some(material) = outline_materials_assets.get_mut(material_handle) {
+            material.outline_width = shader_settings.outline_width;
+        }
+    }
+
+    // Update all LineMaterial instances
+    for material_handle in line_materials.iter() {
+        if let Some(material) = line_materials_assets.get_mut(material_handle) {
+            material.displacement = shader_settings.wireframe_displacement;
+        }
+    }
+
+    // Update all FillMaterial instances
+    for material_handle in fill_materials.iter() {
+        if let Some(material) = fill_materials_assets.get_mut(material_handle) {
+            material.displacement = shader_settings.fill_displacement;
+            material.shininess = shader_settings.fill_shininess;
+            material.specular_strength = shader_settings.fill_specular_strength;
+        }
+    }
+}
+
+// fn ui_system(
+//     mut contexts: EguiContexts,
+//     mut shader_settings: ResMut<ShaderSettings>,
+//     mut outline_materials_assets: ResMut<Assets<OutlineMaterial>>,
+//     outline_materials: Query<&Handle<OutlineMaterial>>,
+//     mut line_materials_assets: ResMut<Assets<LineMaterial>>,
+//     line_materials: Query<&Handle<LineMaterial>>,
+//     mut fill_materials_assets: ResMut<Assets<FillMaterial>>,
+//     fill_materials: Query<&Handle<FillMaterial>>,
+// ) {
+//     egui::Window::new("Shader Controls").show(contexts.ctx_mut(), |ui| {
+//         ui.add(egui::Slider::new(&mut shader_settings.outline_width, 0.0..=1.0).text("Outline Width"));
+//         ui.add(egui::Slider::new(&mut shader_settings.wireframe_displacement, 0.0..=1.0).text("Wireframe Displacement"));
+//         ui.add(egui::Slider::new(&mut shader_settings.fill_displacement, 0.0..=1.0).text("Fill Displacement"));
+//     });
+
+//     // Update all OutlineMaterial instances
+//     for material_handle in outline_materials.iter() {
+//         if let Some(material) = outline_materials_assets.get_mut(material_handle) {
+//             material.outline_width = shader_settings.outline_width;
+//         }
+//     }
+
+//     // Update all LineMaterial instances
+//     for material_handle in line_materials.iter() {
+//         if let Some(material) = line_materials_assets.get_mut(material_handle) {
+//             material.displacement = shader_settings.wireframe_displacement;
+//         }
+//     }
+
+//     // Update all FillMaterial instances
+//     for material_handle in fill_materials.iter() {
+//         if let Some(material) = fill_materials_assets.get_mut(material_handle) {
+//             material.displacement = shader_settings.fill_displacement;
+//         }
+//     }
+// }
+
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            tonemapping: Tonemapping::TonyMcMapface,
+            transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
+            ..default()
+        },
+        PanOrbitCamera::default(),
+        BloomSettings::NATURAL,
+    ));
+
     // Build the animation graph
     let mut graph = AnimationGraph::new();
     let animations = graph
@@ -90,7 +206,7 @@ fn setup(
 
     let disco_naut_1 = SceneBundle {
         scene: assets.load(GltfAssetLabel::Scene(0).from_asset(PATH)),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(0.0)).with_scale(Vec3::splat(1.)),
         ..default()
     };
     let _entity_1 = commands.spawn((disco_naut_1, OriginalSceneTag)).id();
@@ -113,6 +229,7 @@ fn process_scene(
     mut line_materials: ResMut<Assets<LineMaterial>>,
     mut fill_materials: ResMut<Assets<FillMaterial>>, // Add FillMaterial resource
     mut outline_materials: ResMut<Assets<OutlineMaterial>>, // Add FillMaterial resource
+    shader_settings: Res<ShaderSettings>,
 ) {
     for event in events.read() {
         // if event.parent == my_scene_entity.0 {
@@ -122,19 +239,24 @@ fn process_scene(
                     if let Some(original_mesh) = mesh_assets.get_mut(mesh_handle) {
                         commands.entity(entity).remove::<Handle<StandardMaterial>>();
 
-                        random_color_mesh(original_mesh);
-                        smooth_normals(original_mesh);
+                        original_mesh.randomize_vertex_colors();
+                        // original_mesh.smooth_normals();
+                        // original_mesh.compute_smooth_normals();
+                        original_mesh.duplicate_vertices();
+                        original_mesh.compute_flat_normals();
 
                         // Add FillMaterial component
                         let fill_material_handle = fill_materials.add(FillMaterial {
                             color: Vec4::new(0.0, 0.0, 0.0, 1.0),
-                            displacement: 0.1,
+                            displacement: 0.0,
+                            shininess: 200.0,
+                            specular_strength: 1.0,
                         });
                         commands.entity(entity).insert(fill_material_handle.clone());
 
                         // Add OutlineMaterial component
                         let outline_material_handle = outline_materials.add(OutlineMaterial {
-                            outline_width: 0.05,
+                            outline_width: shader_settings.outline_width,
                             ..default()
                         });
                         commands
@@ -142,7 +264,8 @@ fn process_scene(
                             .insert(outline_material_handle.clone());
 
                         let mut new_mesh = original_mesh.clone();
-                        smooth_normals(&mut new_mesh);
+                        // smooth_normals(&mut new_mesh);
+                        new_mesh.smooth_normals();
                         mesh_to_wireframe(&mut new_mesh);
                         let new_mesh_handle = mesh_assets.add(new_mesh);
                         let skinned_mesh = skinned_meshes.get(entity).cloned();
