@@ -7,30 +7,35 @@ use bevy::{
     },
     utils::{HashMap, HashSet},
 };
-
+use anyhow::Result;
 
 
 use rand::Rng;
 use tracing::warn;
 
 use crate::{
-    load_json::{jparse, JsonLineList},
-    ATTRIBUTE_INDEX,
+    load_json::{json_parse, JsonLineList}, WireframeSettings, ATTRIBUTE_INDEX
 };
 
-pub fn mesh_to_wireframe(mesh: &mut Mesh) {
+pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings) -> Result<()> {
     apply_random_vertex_colors(mesh);
-    // smooth_normals(mesh);
 
-    // let line_list = generate_edge_line_list(&mesh, true);
+    let line_list = if let Some(_) = &settings.gltf_path {
+        // Only call json_parse if gltf_path is Some
+        match json_parse(settings) {
+            Ok(parsed_data) => mesh.mesh_to_line_list_custom(parsed_data),
+            Err(e) => panic!("Failed to parse JSON: {}", e),
+            // Err(e) => return Err(anyhow::anyhow!("Failed to parse JSON: {}", e)),
 
-    let j = jparse();
-    let line_list = mesh.mesh_to_line_list_custom(j);
-    // let line_list = mesh.mesh_to_line_list();
+        }
+    } else {
+        mesh.mesh_to_line_list()
+    };
 
     let line_mesh = line_list_to_mesh(&line_list, mesh);
-
     *mesh = line_mesh;
+
+    Ok(())
 }
 
 pub trait RandomizeVertexColors {
@@ -377,7 +382,7 @@ fn mesh_to_line_list(mesh: &Mesh) -> LineList {
             if let VertexAttributeValues::Float32x4(values) = attr {
                 Some(values)
             } else {
-                println!("invalid attribute format");
+                warn!("invalid attribute format");
                 None
             }
         });
@@ -388,7 +393,7 @@ fn mesh_to_line_list(mesh: &Mesh) -> LineList {
                 if let VertexAttributeValues::Uint16x4(values) = attr {
                     Some(values)
                 } else {
-                    println!("invalid attribute format");
+                    warn!("invalid attribute format");
                     None
                 }
             });
@@ -399,7 +404,7 @@ fn mesh_to_line_list(mesh: &Mesh) -> LineList {
                 if let VertexAttributeValues::Float32x4(values) = attr {
                     Some(values)
                 } else {
-                    println!("invalid attribute format");
+                    warn!("invalid attribute format");
                     None
                 }
             });
@@ -456,7 +461,11 @@ fn mesh_to_line_list(mesh: &Mesh) -> LineList {
             }
         }
     } else {
-        println!("mesh missing required data")
+        warn!("mesh missing required data")
+    }
+
+    if line_list.lines.is_empty() {
+        warn!("mesh is empty");
     }
 
     line_list
