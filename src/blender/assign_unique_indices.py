@@ -1,3 +1,9 @@
+'''
+this script assigns a unique index to each vertex in the active object and stores it as a custom attribute.
+this is we can be sure bevy and blender are using the same indices for the vertices.
+'''
+
+
 import bpy
 import bmesh
 
