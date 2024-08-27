@@ -23,7 +23,7 @@ use std::time::Duration;
 mod camera_plugin;
 mod fill_material;
 mod line_material;
-mod load_json;
+// mod load_json;
 mod mesh_ops;
 mod outline_material;
 
@@ -169,19 +169,6 @@ fn setup(
             },
         ))
         .id();
-
-    // let fox = commands
-    //     .spawn((
-    //         SceneBundle {
-    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(FOXPATH)),
-    //             ..default()
-    //         },
-    //         WireframeSettings {
-    //             gltf_path: None,
-    //             // gltf_path: Some(String::from(FOXPATH)),
-    //         },
-    //     ))
-    //     .id();
 }
 
 
@@ -204,17 +191,40 @@ fn process_scene(
         if !processable_scenes.contains(event.parent) {
             continue;
         }
+        println!("a");
 
-        // Print extras for the parent entity
-        if let Ok((_, extras)) = gltf_extras.get(event.parent) {
-            println!("Parent Extras: {:?}", extras);
+        if let Ok(r) = gltf_extras.get(event.parent){
+            println!("b");
+
+            println!("GLTF EXTRAS {:?}", r);
         }
         
-        // if event.parent == my_scene_entity.0 {
+        
+
+        
+        let mut parsed_extra = None;
+        
         for entity in children.iter_descendants(event.parent) {
             if let Ok((_, extras)) = gltf_extras.get(entity) {
-                println!("Child Entity Extras: {:?}", extras);
+                match parse_gltf_extra(&extras.value) {
+                    Ok(extra) => {
+                        info!("Parsed GLTF extras: {:?}", extra);
+                        parsed_extra = Some(extra);
+                    }
+                    Err(e) => {
+                        warn!("Failed to parse GLTF extras: {:?}", e);
+                    }
+                }
             }
+        }
+        
+        
+        println!("custom line list contains: {:?}", parsed_extra);
+        
+        for entity in children.iter_descendants(event.parent) {
+           
+            println!("_______________NEW ENTITY {:?}", entity);
+            
 
             if let (Ok((entity, mesh_handle)), Ok(wireframe_settings)) =
                 (meshes.get(entity), processable_scenes.get(event.parent))
@@ -247,7 +257,8 @@ fn process_scene(
                         .entity(entity)
                         .insert(outline_material_handle.clone());
 
-                    match mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings) {
+                    // let custom_line_list = None;
+                    match mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings, &parsed_extra) {
                         Ok(_) => {}
                         Err(e) => {
                             warn!("Error: {:?}", e);
@@ -356,4 +367,43 @@ fn ui_system(
             material.specular_strength = shader_settings.fill_specular_strength;
         }
     }
+}
+
+
+
+
+
+
+
+
+
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+struct GltfExtra {
+    selected_edges_json: String,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct JsonLineList {
+    pub line_list: Vec<[u32; 2]>,
+}
+
+impl From<Vec<Vec<i32>>> for JsonLineList {
+    fn from(edges: Vec<Vec<i32>>) -> Self {
+        let line_list = edges
+            .into_iter()
+            .map(|e| [e[0] as u32, e[1] as u32])
+            .collect();
+        JsonLineList { line_list }
+    }
+}
+
+fn parse_gltf_extra(json_str: &str) -> Result<JsonLineList, serde_json::Error> {
+    let gltf_extra:GltfExtra = serde_json::from_str(json_str)?;
+    
+    let edges: Vec<Vec<i32>> = serde_json::from_str(&gltf_extra.selected_edges_json)?;
+    
+
+
+    Ok(JsonLineList::from(edges))
 }

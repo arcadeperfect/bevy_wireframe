@@ -14,31 +14,44 @@ use rand::Rng;
 use tracing::{info, warn};
 
 use crate::{
-    load_json::{json_parse, JsonLineList},
-    WireframeSettings, ATTRIBUTE_INDEX,
+    // load_json::{json_parse, JsonLineList},
+    JsonLineList, WireframeSettings, ATTRIBUTE_INDEX
 };
 
-pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings) -> Result<()> {
-    // apply_random_vertex_colors(mesh);
+pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings, custom_line_list: &Option<JsonLineList>) -> Result<()> {
 
-    // let line_list = if let Some(_) = &settings.gltf_path {
-    //     // Only call json_parse if gltf_path is Some
-    //     match json_parse(settings) {
-    //         Ok(parsed_data) => mesh.mesh_to_line_list_custom(parsed_data),
-    //         Err(e) => panic!("Failed to parse JSON: {}", e),
-    //         // Err(e) => return Err(anyhow::anyhow!("Failed to parse JSON: {}", e)),
-    //     }
-    // } else {
-    //     info!("No JSON file provided, computing line list from mesh vertices");
-    //     mesh.mesh_to_line_list()
-    // };
+
+    match custom_line_list {
+        Some(c) => {
+            println!("Custom line list provided");
+            let line_list = mesh.mesh_to_line_list_custom(c);
+            let line_mesh = line_list_to_mesh(&line_list, mesh);
+            *mesh = line_mesh;
+            Ok(())
+        }
+        None => {
+            println!("No custom line list provided");
+            let line_list = mesh.mesh_to_line_list();
+            let line_mesh = line_list_to_mesh(&line_list, mesh);
+            *mesh = line_mesh;
+            Ok(())
+        }
+    }
     
-    let line_list = mesh.mesh_to_line_list();
+    // let mut line_list;
+    
+    // if let Some(c) = custom_line_list {
+    //     line_list = mesh.mesh_to_line_list_custom(c);
+    //     println!("Custom line list provided");
+    // } else {
+    //     line_list = mesh.mesh_to_line_list();
+    //     println!("No custom line list provided");
+    // }
+    
+    // let line_mesh = line_list_to_mesh(&line_list, mesh);
+    // *mesh = line_mesh;
 
-    let line_mesh = line_list_to_mesh(&line_list, mesh);
-    *mesh = line_mesh;
-
-    Ok(())
+    // Ok(())
 }
 
 pub trait RandomizeVertexColors {
@@ -179,16 +192,16 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
 }
 
 pub trait mesh_to_line_list_custom {
-    fn mesh_to_line_list_custom(&self, data: JsonLineList) -> LineList;
+    fn mesh_to_line_list_custom(&self, data: &crate::JsonLineList) -> LineList;
 }
 
 impl mesh_to_line_list_custom for Mesh {
-    fn mesh_to_line_list_custom(&self, data: JsonLineList) -> LineList {
+    fn mesh_to_line_list_custom(&self, data: &crate::JsonLineList) -> LineList {
         mesh_to_line_list_custom(self, data)
     }
 }
 
-fn mesh_to_line_list_custom(mesh: &Mesh, data: JsonLineList) -> LineList {
+fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList {
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 
