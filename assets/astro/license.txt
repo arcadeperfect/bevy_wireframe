@@ -1,8 +1,0 @@
-Model Information:
-* title:	Cool Astronaut - walk  Anim ( Rigged - T pose )
-* source:	https://sketchfab.com/3d-models/cool-astronaut-walk-anim-rigged-t-pose-eb365931fa9245d19facf5e73e9871f3
-* author:	Lucid Dreams (https://sketchfab.com/vjluciddreams)
-
-Model License:
-* license type:	SKETCHFAB Editorial (https://sketchfab.com/licenses)
-* requirements:	Use only in connection with events that are newsworthy or of public interest
