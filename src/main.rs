@@ -137,8 +137,8 @@ fn setup(
                 ..default()
             },
             WireframeSettings {
-                gltf_path: None,
-                // gltf_path: Some(String::from(ASTROPATH)),
+                // gltf_path: None,
+                gltf_path: Some(String::from(ASTROPATH)),
 
             },
         ))
