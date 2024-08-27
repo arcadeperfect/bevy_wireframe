@@ -29,5 +29,5 @@ jobs:
       uses: JamesIves/github-pages-deploy-action@4.1.5
       with:
         branch: gh-pages
-        folder: .  # Deploy the entire root directory
-        clean: false  # Don't remove existing files
+        folder: ./out  # Deploy only the contents of the out directory
+        clean: true  # Clean previous contents before deploying
