@@ -1,3 +1,42 @@
+# name: Deploy to GitHub Pages
+
+# on:
+#   push:
+#     branches: [ main ]
+
+# jobs:
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v2
+
+#     - name: Install Rust
+#       uses: actions-rs/toolchain@v1
+#       with:
+#         toolchain: stable
+#         target: wasm32-unknown-unknown
+#         override: true
+
+#     - name: Install wasm-bindgen-cli
+#       run: cargo install wasm-bindgen-cli
+
+#     - name: Build
+#       run: |
+#         cargo build --release --target wasm32-unknown-unknown
+#         wasm-bindgen --out-dir ./out/ --target web ./target/wasm32-unknown-unknown/release/bevy_wireframe.wasm
+
+#     - name: Prepare Deployment Directory
+#       run: |
+#         mkdir -p public/out
+#         cp -r ./out/* public/out/
+
+#     - name: Deploy to GitHub Pages
+#       uses: JamesIves/github-pages-deploy-action@4.1.5
+#       with:
+#         branch: gh-pages
+#         folder: public  # Deploy the public directory which contains the out subdirectory and other root files
+#         clean: false  # Don't remove existing files, as we want to keep other files in the root directory
+
 name: Deploy to GitHub Pages
 
 on:
@@ -9,6 +48,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+
+    - name: Cache Cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache Cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/index
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-index-
+
+    - name: Cache Cargo build
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-build-
 
     - name: Install Rust
       uses: actions-rs/toolchain@v1
