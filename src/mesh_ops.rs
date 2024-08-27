@@ -1,24 +1,24 @@
+use anyhow::Result;
 use bevy::{
     math::Vec3,
     prelude::Mesh,
     render::{
-        mesh::{Indices, VertexAttributeValues},
+        mesh::{Indices, MeshVertexAttribute, VertexAttributeValues},
         render_asset::RenderAssetUsages,
     },
     utils::{HashMap, HashSet},
 };
-use anyhow::Result;
-
 
 use rand::Rng;
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::{
-    load_json::{json_parse, JsonLineList}, WireframeSettings, ATTRIBUTE_INDEX
+    load_json::{json_parse, JsonLineList},
+    WireframeSettings, ATTRIBUTE_INDEX,
 };
 
 pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings) -> Result<()> {
-    apply_random_vertex_colors(mesh);
+    // apply_random_vertex_colors(mesh);
 
     let line_list = if let Some(_) = &settings.gltf_path {
         // Only call json_parse if gltf_path is Some
@@ -26,9 +26,9 @@ pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings) -> Resul
             Ok(parsed_data) => mesh.mesh_to_line_list_custom(parsed_data),
             Err(e) => panic!("Failed to parse JSON: {}", e),
             // Err(e) => return Err(anyhow::anyhow!("Failed to parse JSON: {}", e)),
-
         }
     } else {
+        info!("No JSON file provided, computing line list from mesh vertices");
         mesh.mesh_to_line_list()
     };
 
@@ -88,101 +88,30 @@ fn vec3_approx_eq(a: [f32; 3], b: [f32; 3]) -> bool {
     const EPSILON: f32 = 1e-5;
     (a[0] - b[0]).abs() < EPSILON && (a[1] - b[1]).abs() < EPSILON && (a[2] - b[2]).abs() < EPSILON
 }
-pub trait SmoothNormals {
-    fn smooth_normals(&mut self);
+
+#[derive(Clone, Default)]
+pub struct LineList {
+    pub lines: Vec<(Vert, Vert)>,
 }
 
-impl SmoothNormals for Mesh {
-    fn smooth_normals(&mut self) {
-        smooth_normals(self);
+#[derive(Debug, Clone, Default)]
+pub struct Vert {
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
+    pub color: Option<[f32; 4]>,
+    pub joint_indices: Option<[u16; 4]>,
+    pub joint_weights: Option<[f32; 4]>,
+}
+
+pub trait mesh_to_line_list {
+    fn mesh_to_line_list(&self) -> LineList;
+}
+
+impl mesh_to_line_list for Mesh {
+    fn mesh_to_line_list(&self) -> LineList {
+        mesh_to_line_list(self)
     }
 }
-
-fn smooth_normals(mesh: &mut Mesh) {
-    if let (
-        Some(VertexAttributeValues::Float32x3(positions)),
-        Some(VertexAttributeValues::Float32x3(normals)),
-    ) = (
-        mesh.attribute(Mesh::ATTRIBUTE_POSITION),
-        mesh.attribute(Mesh::ATTRIBUTE_NORMAL),
-    ) {
-        let mut normal_map: HashMap<(i32, i32, i32), Vec3> = HashMap::new();
-
-        // Function to convert float position to integer key
-        let to_key = |pos: &[f32; 3]| {
-            (
-                (pos[0] * 1000.0).round() as i32,
-                (pos[1] * 1000.0).round() as i32,
-                (pos[2] * 1000.0).round() as i32,
-            )
-        };
-
-        // Sum up normals for each unique position
-        for (position, normal) in positions.iter().zip(normals.iter()) {
-            let key = to_key(position);
-            let entry = normal_map.entry(key).or_insert(Vec3::ZERO);
-            *entry += Vec3::from_array(*normal);
-        }
-
-        // Normalize the summed normals
-        for normal in normal_map.values_mut() {
-            *normal = normal.normalize();
-        }
-
-        // Create new normalized normals
-        let new_normals: Vec<[f32; 3]> = positions
-            .iter()
-            .map(|pos| normal_map[&to_key(pos)].to_array())
-            .collect();
-
-        // Update the mesh with new normals
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, new_normals);
-    }
-}
-
-// fn flat_normals(mesh: &mut Mesh) {
-//     if let (
-//         Some(VertexAttributeValues::Float32x3(positions)),
-//         Some(indices)
-//     ) = (
-//         mesh.attribute(Mesh::ATTRIBUTE_POSITION),
-//         mesh.indices()
-//     ) {
-//         let mut flat_normals = vec![[0.0; 3]; positions.len()];
-
-//         let index_iter: Box<dyn Iterator<Item = usize>> = match indices {
-//             Indices::U16(vec) => Box::new(vec.iter().map(|&i| i as usize)),
-//             Indices::U32(vec) => Box::new(vec.iter().map(|&i| i as usize)),
-//         };
-
-//         // Process each triangle
-//         for triangle in index_iter.chunks(3) {
-//             let triangle: Vec<usize> = triangle.collect();
-//             if triangle.len() != 3 {
-//                 continue; // Skip if we don't have a full triangle
-//             }
-
-//             let i1 = triangle[0];
-//             let i2 = triangle[1];
-//             let i3 = triangle[2];
-
-//             let v1 = Vec3::from(positions[i1]);
-//             let v2 = Vec3::from(positions[i2]);
-//             let v3 = Vec3::from(positions[i3]);
-
-//             // Calculate the normal for this face
-//             let normal = (v2 - v1).cross(v3 - v1).normalize();
-
-//             // Assign this normal to all vertices of the triangle
-//             flat_normals[i1] = normal.to_array();
-//             flat_normals[i2] = normal.to_array();
-//             flat_normals[i3] = normal.to_array();
-//         }
-
-//         // Update the mesh with new flat normals
-//         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, flat_normals);
-//     }
-// }
 
 pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
     let mut line_mesh = Mesh::new(
@@ -240,30 +169,6 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
     }
 
     line_mesh
-}
-
-#[derive(Clone, Default)]
-pub struct LineList {
-    pub lines: Vec<(Vert, Vert)>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Vert {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
-    pub color: Option<[f32; 4]>,
-    pub joint_indices: Option<[u16; 4]>,
-    pub joint_weights: Option<[f32; 4]>,
-}
-
-pub trait mesh_to_line_list {
-    fn mesh_to_line_list(&self) -> LineList;
-}
-
-impl mesh_to_line_list for Mesh {
-    fn mesh_to_line_list(&self) -> LineList {
-        mesh_to_line_list(self)
-    }
 }
 
 pub trait mesh_to_line_list_custom {
@@ -367,7 +272,8 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: JsonLineList) -> LineList {
     line_list
 }
 
-fn mesh_to_line_list(mesh: &Mesh) -> LineList {
+fn mesh_to_line_list(mesh: &Mesh) -> Result<LineList> {
+    
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 
@@ -409,25 +315,23 @@ fn mesh_to_line_list(mesh: &Mesh) -> LineList {
                 }
             });
 
-        let mut process_triangle = |a: u32, b: u32, c: u32| {
-            let mut add_edge = |v1: u32, v2: u32| {
+        let mut process_triangle = |a: usize, b: usize, c: usize| {
+            let mut add_edge = |v1: usize, v2: usize| {
                 let edge = if v1 < v2 { (v1, v2) } else { (v2, v1) };
                 if edge_set.insert(edge) {
-                    let i1 = v1 as usize;
-                    let i2 = v2 as usize;
                     let start = Vert {
-                        position: positions[i1],
-                        normal: normals[i1],
-                        color: colors.map(|c| c[i1]),
-                        joint_indices: joint_indices.map(|ji| ji[i1]),
-                        joint_weights: joint_weights.map(|jw| jw[i1]),
+                        position: positions[v1],
+                        normal: normals[v1],
+                        color: colors.map(|c| c[v1]),
+                        joint_indices: joint_indices.map(|ji| ji[v1]),
+                        joint_weights: joint_weights.map(|jw| jw[v1]),
                     };
                     let end = Vert {
-                        position: positions[i2],
-                        normal: normals[i2],
-                        color: colors.map(|c| c[i2]),
-                        joint_indices: joint_indices.map(|ji| ji[i2]),
-                        joint_weights: joint_weights.map(|jw| jw[i2]),
+                        position: positions[v2],
+                        normal: normals[v2],
+                        color: colors.map(|c| c[v2]),
+                        joint_indices: joint_indices.map(|ji| ji[v2]),
+                        joint_weights: joint_weights.map(|jw| jw[v2]),
                     };
                     line_list.lines.push((start, end));
                 }
@@ -443,30 +347,91 @@ fn mesh_to_line_list(mesh: &Mesh) -> LineList {
                 Indices::U16(idx) => {
                     for triangle in idx.chunks(3) {
                         process_triangle(
-                            triangle[0] as u32,
-                            triangle[1] as u32,
-                            triangle[2] as u32,
+                            triangle[0] as usize,
+                            triangle[1] as usize,
+                            triangle[2] as usize,
                         );
                     }
                 }
                 Indices::U32(idx) => {
                     for triangle in idx.chunks(3) {
                         process_triangle(
-                            triangle[0] as u32,
-                            triangle[1] as u32,
-                            triangle[2] as u32,
+                            triangle[0] as usize,
+                            triangle[1] as usize,
+                            triangle[2] as usize,
                         );
                     }
                 }
             }
+        } else {
+            // Handle non-indexed geometry
+            for (i, triangle) in positions.chunks(3).enumerate() {
+                if triangle.len() == 3 {
+                    process_triangle(i * 3, i * 3 + 1, i * 3 + 2);
+                }
+            }
         }
     } else {
-        warn!("mesh missing required data")
+        // warn!("mesh missing required data");
+        return Err(anyhow!("mesh missing required data"));
     }
 
     if line_list.lines.is_empty() {
-        warn!("mesh is empty");
+        return Err(anyhow!("no lines generated"));
     }
 
-    line_list
+    Ok(line_list)
+}
+
+
+pub trait SmoothNormalsNonIndexed {
+    fn smooth_normals_non_indexed(&mut self);
+}
+
+impl SmoothNormalsNonIndexed for Mesh {
+    fn smooth_normals_non_indexed(&mut self) {
+        smooth_normals_non_indexed(self);
+    }
+}
+
+fn smooth_normals_non_indexed(mesh: &mut Mesh) {
+    if let (
+        Some(VertexAttributeValues::Float32x3(positions)),
+        Some(VertexAttributeValues::Float32x3(normals)),
+    ) = (
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION),
+        mesh.attribute(Mesh::ATTRIBUTE_NORMAL),
+    ) {
+        let mut normal_map: HashMap<(i32, i32, i32), Vec3> = HashMap::new();
+
+        // Function to convert float position to integer key
+        let to_key = |pos: &[f32; 3]| {
+            (
+                (pos[0] * 1000.0).round() as i32,
+                (pos[1] * 1000.0).round() as i32,
+                (pos[2] * 1000.0).round() as i32,
+            )
+        };
+
+        // Sum up normals for each unique position
+        for (position, normal) in positions.iter().zip(normals.iter()) {
+            let key = to_key(position);
+            let entry = normal_map.entry(key).or_insert(Vec3::ZERO);
+            *entry += Vec3::from_array(*normal);
+        }
+
+        // Normalize the summed normals
+        for normal in normal_map.values_mut() {
+            *normal = normal.normalize();
+        }
+
+        // Create new normalized normals
+        let new_normals: Vec<[f32; 3]> = positions
+            .iter()
+            .map(|pos| normal_map[&to_key(pos)].to_array())
+            .collect();
+
+        // Update the mesh with new normals
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, new_normals);
+    }
 }
