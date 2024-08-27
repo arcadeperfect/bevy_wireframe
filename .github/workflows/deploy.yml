@@ -25,9 +25,14 @@ jobs:
         cargo build --release --target wasm32-unknown-unknown
         wasm-bindgen --out-dir ./out/ --target web ./target/wasm32-unknown-unknown/release/bevy_wireframe.wasm
 
+    - name: Prepare Deployment Directory
+      run: |
+        mkdir -p public/out
+        cp -r ./out/* public/out/
+
     - name: Deploy to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@4.1.5
       with:
         branch: gh-pages
-        folder: ./out  # Deploy only the contents of the out directory
-        clean: true  # Clean previous contents before deploying
+        folder: public  # Deploy the public directory which contains the out subdirectory and other root files
+        clean: false  # Don't remove existing files, as we want to keep other files in the root directory
