@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+
 use bevy::{
     math::Vec3,
     prelude::Mesh,
@@ -109,7 +110,11 @@ pub trait mesh_to_line_list {
 
 impl mesh_to_line_list for Mesh {
     fn mesh_to_line_list(&self) -> LineList {
-        mesh_to_line_list(self)
+        match mesh_to_line_list(self) {
+            Ok(line_list) => line_list,
+            Err(e) => panic!("Failed to convert mesh to line list: {}", e),
+        }
+
     }
 }
 
