@@ -1,13 +1,8 @@
 use bevy::{
-    animation::animate_targets,
-    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
-    gltf::GltfPlugin,
-    prelude::*,
-    render::{
+    animation::animate_targets, asset::AssetMetaCheck, core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping}, gltf::GltfPlugin, prelude::*, render::{
         mesh::{skinning::SkinnedMesh, MeshVertexAttribute},
         render_resource::VertexFormat,
-    },
-    scene::SceneInstanceReady,
+    }, scene::SceneInstanceReady
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
@@ -142,7 +137,9 @@ fn setup(
                 ..default()
             },
             WireframeSettings {
-                gltf_path: Some(String::from(ASTROPATH)),
+                gltf_path: None,
+                // gltf_path: Some(String::from(ASTROPATH)),
+
             },
         ))
         .id();
