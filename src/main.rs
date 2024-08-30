@@ -16,7 +16,7 @@ use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use fill_material::FillMaterial;
 use line_material::LineMaterial;
-use mesh_ops::{mesh_to_wireframe, RandomizeVertexColors, SmoothNormalsNonIndexed};
+use mesh_ops::{get_smoothed_normals, mesh_to_wireframe, RandomizeVertexColors, SmoothNormalsNonIndexed};
 use outline_material::OutlineMaterial;
 use std::time::Duration;
 
@@ -34,6 +34,7 @@ const ASTROPATH: &str = "astro_custom/scene.gltf";
 // const PATH: &str = "sphere.gltf";
 // const PATH: &str = "torus.gltf";
 const TORUSPATH: &str = "temp/torus_custom_property.gltf";
+// const COUPEPATH: &str = "temp/coupe.gltf";
 
 // #[derive(Resource)]
 // struct MyScene(Entity);
@@ -77,13 +78,19 @@ struct WireframeSettings {
 const ATTRIBUTE_INDEX: MeshVertexAttribute =
     MeshVertexAttribute::new("Index", 1237464976, VertexFormat::Float32);
 
+const ATTRIBUTE_SMOOTHED_NORMAL: MeshVertexAttribute =
+    MeshVertexAttribute::new("SmoothNormal", 723495149, VertexFormat::Float32x3);
+
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(ShaderSettings::default())
         .add_plugins(
-            DefaultPlugins
-                .set(GltfPlugin::default().add_custom_vertex_attribute("INDEX", ATTRIBUTE_INDEX)),
+            DefaultPlugins.set(
+                GltfPlugin::default()
+                    .add_custom_vertex_attribute("INDEX", ATTRIBUTE_INDEX)
+                    .add_custom_vertex_attribute("SMOOTH_NORMAL", ATTRIBUTE_SMOOTHED_NORMAL),
+            ),
         )
         .add_plugins(EguiPlugin)
         .add_plugins(PanOrbitCameraPlugin)
@@ -148,7 +155,7 @@ fn setup(
     //             ..default()
     //         },
     //         WireframeSettings {
-    //             gltf_path: None,
+    //             // gltf_path: None,
     //             // gltf_path: Some(String::from(ASTROPATH)),
 
     //         },
@@ -164,14 +171,10 @@ fn setup(
                     .with_scale(Vec3::splat(1.)),
                 ..default()
             },
-            WireframeSettings {
-            
-            },
+            WireframeSettings {},
         ))
         .id();
 }
-
-
 
 fn process_scene(
     mut commands: Commands,
@@ -193,22 +196,19 @@ fn process_scene(
         }
         println!("a");
 
-        if let Ok(r) = gltf_extras.get(event.parent){
+        if let Ok(r) = gltf_extras.get(event.parent) {
             println!("b");
 
             println!("GLTF EXTRAS {:?}", r);
         }
-        
-        
 
-        
         let mut parsed_extra = None;
-        
+
         for entity in children.iter_descendants(event.parent) {
             if let Ok((_, extras)) = gltf_extras.get(entity) {
                 match parse_gltf_extra(&extras.value) {
                     Ok(extra) => {
-                        info!("Parsed GLTF extras: {:?}", extra);
+                        info!("Parsed GLTF extras");
                         parsed_extra = Some(extra);
                     }
                     Err(e) => {
@@ -217,15 +217,8 @@ fn process_scene(
                 }
             }
         }
-        
-        
-        println!("custom line list contains: {:?}", parsed_extra);
-        
-        for entity in children.iter_descendants(event.parent) {
-           
-            println!("_______________NEW ENTITY {:?}", entity);
-            
 
+        for entity in children.iter_descendants(event.parent) {
             if let (Ok((entity, mesh_handle)), Ok(wireframe_settings)) =
                 (meshes.get(entity), processable_scenes.get(event.parent))
             {
@@ -233,11 +226,17 @@ fn process_scene(
                     commands.entity(entity).remove::<Handle<StandardMaterial>>();
                     flat_mesh.randomize_vertex_colors();
 
+                    let smoothed_normals = get_smoothed_normals(flat_mesh).unwrap();
+                    flat_mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals);
+                    
+                    
                     let mut smooth_mesh = flat_mesh.clone();
+                    
                     // smooth_mesh.compute_smooth_normals();
-                    smooth_mesh.smooth_normals_non_indexed();
+                    // smooth_mesh.smooth_normals_non_indexed();
                     flat_mesh.duplicate_vertices();
                     flat_mesh.compute_flat_normals();
+                    // flat_mesh.compute_normals();
 
                     // Add FillMaterial component
                     let fill_material_handle = fill_materials.add(FillMaterial {
@@ -261,7 +260,8 @@ fn process_scene(
                     match mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings, &parsed_extra) {
                         Ok(_) => {}
                         Err(e) => {
-                            warn!("Error: {:?}", e);
+                            panic!("fuckkkkkkkk");
+                            // warn!("Error: {:?}", e);
                         }
                     }
                     // mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings);
@@ -369,15 +369,6 @@ fn ui_system(
     }
 }
 
-
-
-
-
-
-
-
-
-
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct GltfExtra {
     selected_edges_json: String,
@@ -399,11 +390,9 @@ impl From<Vec<Vec<i32>>> for JsonLineList {
 }
 
 fn parse_gltf_extra(json_str: &str) -> Result<JsonLineList, serde_json::Error> {
-    let gltf_extra:GltfExtra = serde_json::from_str(json_str)?;
-    
-    let edges: Vec<Vec<i32>> = serde_json::from_str(&gltf_extra.selected_edges_json)?;
-    
+    let gltf_extra: GltfExtra = serde_json::from_str(json_str)?;
 
+    let edges: Vec<Vec<i32>> = serde_json::from_str(&gltf_extra.selected_edges_json)?;
 
     Ok(JsonLineList::from(edges))
 }

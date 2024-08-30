@@ -3,9 +3,10 @@ use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
 use bevy::render::mesh::MeshVertexBufferLayoutRef;
 use bevy::render::render_resource::{
-    AsBindGroup, RenderPipelineDescriptor, ShaderRef,
-    SpecializedMeshPipelineError,
+    AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
 };
+
+use crate::ATTRIBUTE_SMOOTHED_NORMAL;
 
 // bitflags! {
 //     /// Bitflags representing the configuration for the `OutlineMaterial`.
@@ -14,8 +15,6 @@ use bevy::render::render_resource::{
 //         const USE_VERTEX_COLOR = 0x0001;
 //     }
 // }
-
-
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct OutlineMaterial {
@@ -28,7 +27,6 @@ pub struct OutlineMaterial {
     #[uniform(0)]
     pub use_vertex_color: i32,
 }
-
 
 impl Material for OutlineMaterial {
     fn vertex_shader() -> ShaderRef {
@@ -45,16 +43,23 @@ impl Material for OutlineMaterial {
         layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
+        let mut attributes = vec![
+            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
+            Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
+            Mesh::ATTRIBUTE_COLOR.at_shader_location(5),
+            ATTRIBUTE_SMOOTHED_NORMAL.at_shader_location(8),
+        ];
 
-        let defs = &mut descriptor.vertex.shader_defs;
-
-        let mesh_layout = &layout.0;
-        if mesh_layout.contains(Mesh::ATTRIBUTE_COLOR) {
-            defs.push("VERTEX_COLOR_AVAILABLE".into());
+        if layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
+            && layout.0.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+        {
+            attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(6));
+            attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(7));
         }
 
+        let vertex_layout = layout.0.get_layout(&attributes)?;
 
-        // defs.push("VERTEX_COLOR_AVAILABLE".into());
+        descriptor.vertex.buffers = vec![vertex_layout];
 
         Ok(())
     }

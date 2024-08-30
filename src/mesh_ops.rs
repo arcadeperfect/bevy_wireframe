@@ -20,38 +20,23 @@ use crate::{
 
 pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings, custom_line_list: &Option<JsonLineList>) -> Result<()> {
 
-
+    
     match custom_line_list {
         Some(c) => {
-            println!("Custom line list provided");
+            println!("Using custom line list");
             let line_list = mesh.mesh_to_line_list_custom(c);
             let line_mesh = line_list_to_mesh(&line_list, mesh);
             *mesh = line_mesh;
             Ok(())
         }
         None => {
-            println!("No custom line list provided");
+            println!("Using default line list");
             let line_list = mesh.mesh_to_line_list();
             let line_mesh = line_list_to_mesh(&line_list, mesh);
             *mesh = line_mesh;
             Ok(())
         }
     }
-    
-    // let mut line_list;
-    
-    // if let Some(c) = custom_line_list {
-    //     line_list = mesh.mesh_to_line_list_custom(c);
-    //     println!("Custom line list provided");
-    // } else {
-    //     line_list = mesh.mesh_to_line_list();
-    //     println!("No custom line list provided");
-    // }
-    
-    // let line_mesh = line_list_to_mesh(&line_list, mesh);
-    // *mesh = line_mesh;
-
-    // Ok(())
 }
 
 pub trait RandomizeVertexColors {
@@ -453,5 +438,46 @@ fn smooth_normals_non_indexed(mesh: &mut Mesh) {
 
         // Update the mesh with new normals
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, new_normals);
+    }
+}
+
+pub fn get_smoothed_normals(mesh: &mut Mesh) -> Result<Vec<[f32; 3]>> {
+    if let (
+        Some(VertexAttributeValues::Float32x3(positions)),
+        Some(VertexAttributeValues::Float32x3(normals)),
+    ) = (
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION),
+        mesh.attribute(Mesh::ATTRIBUTE_NORMAL),
+    ) {
+        let mut normal_map: HashMap<(i32, i32, i32), Vec3> = HashMap::new();
+
+        // Function to convert float position to integer key
+        let to_key = |pos: &[f32; 3]| {
+            (
+                (pos[0] * 1000.0).round() as i32,
+                (pos[1] * 1000.0).round() as i32,
+                (pos[2] * 1000.0).round() as i32,
+            )
+        };
+
+        // Sum up normals for each unique position
+        for (position, normal) in positions.iter().zip(normals.iter()) {
+            let key = to_key(position);
+            let entry = normal_map.entry(key).or_insert(Vec3::ZERO);
+            *entry += Vec3::from_array(*normal);
+        }
+
+        // Normalize the summed normals
+        for normal in normal_map.values_mut() {
+            *normal = normal.normalize();
+        }
+
+        // Create new normalized normals
+        Ok(positions
+            .iter()
+            .map(|pos| normal_map[&to_key(pos)].to_array())
+            .collect())
+    } else {
+        Err(anyhow!("missing required attributes"))
     }
 }

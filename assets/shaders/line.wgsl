@@ -137,7 +137,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // #ifdef VERTEX_COLORS
     // return in.color;
     // #else
-    return in.color;
+    return in.color * 15.0;
     // #endif
     
 }

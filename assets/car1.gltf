@@ -1,0 +1,37 @@
+{
+	"asset":{
+		"generator":"Khronos glTF Blender I/O v4.1.63",
+		"version":"2.0"
+	},
+	"scene":0,
+	"scenes":[
+		{
+			"name":"Scene",
+			"nodes":[
+				1
+			]
+		}
+	],
+	"nodes":[
+		{
+			"name":"Car",
+			"rotation":[
+				-0.5000001192092896,
+				0.5000001192092896,
+				-0.5,
+				0.4999999701976776
+			],
+			"scale":[
+				100,
+				100,
+				100
+			]
+		},
+		{
+			"children":[
+				0
+			],
+			"name":"RootNode"
+		}
+	]
+}

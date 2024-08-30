@@ -3,9 +3,56 @@
     mesh_functions,
     skinning,
     morph::morph,
-    forward_io::{Vertex, VertexOutput},
+    // forward_io::{Vertex},
     view_transformations::position_world_to_clip,
 }
+
+struct Vertex {
+    @builtin(instance_index) instance_index: u32,
+#ifdef VERTEX_POSITIONS
+    @location(0) position: vec3<f32>,
+#endif
+#ifdef VERTEX_NORMALS
+    @location(1) normal: vec3<f32>,
+#endif
+#ifdef VERTEX_COLORS
+    @location(5) color: vec4<f32>,
+#endif
+#ifdef SKINNED
+    @location(6) joint_indices: vec4<u32>,
+    @location(7) joint_weights: vec4<f32>,
+#endif
+#ifdef MORPH_TARGETS
+    @builtin(vertex_index) index: u32,
+#endif
+    @location(8) smooth_normal: vec3<f32>
+};
+
+struct VertexOutput {
+    // This is `clip position` when the struct is used as a vertex stage output
+    // and `frag coord` when used as a fragment stage input
+    @builtin(position) position: vec4<f32>,
+    @location(0) world_position: vec4<f32>,
+    @location(1) world_normal: vec3<f32>,
+#ifdef VERTEX_UVS_A
+    @location(2) uv: vec2<f32>,
+#endif
+#ifdef VERTEX_UVS_B
+    @location(3) uv_b: vec2<f32>,
+#endif
+#ifdef VERTEX_TANGENTS
+    @location(4) world_tangent: vec4<f32>,
+#endif
+    @location(5) color: vec4<f32>,
+#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
+    @location(6) @interpolate(flat) instance_index: u32,
+#endif
+#ifdef VISIBILITY_RANGE_DITHER
+    @location(7) @interpolate(flat) visibility_range_dither: i32,
+#endif
+}
+
+
 
 // Define your OutlineMaterial structure
 struct OutlineMaterial {
@@ -80,7 +127,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     let scaled_outline_width = material.outline_width * distance_to_camera * 0.01;
 
     // Displace the vertex along its normal by the scaled outline width
-    let displaced_position = vertex.position + vertex.normal * scaled_outline_width;
+    let displaced_position = vertex.position + vertex.smooth_normal * scaled_outline_width;
 
     // Transform the displaced position to world space
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(displaced_position, 1.0));
@@ -94,7 +141,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef VERTEX_COLORS
     if (material.use_vertex_color > 0) {
-        out.color = vertex.color;
+        out.color = vertex.color * 5.0;
     } else {
         out.color = material.flat_color;
     }
