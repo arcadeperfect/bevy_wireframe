@@ -34,7 +34,7 @@ const ASTROPATH: &str = "astro_custom/scene.gltf";
 // const PATH: &str = "sphere.gltf";
 // const PATH: &str = "torus.gltf";
 const TORUSPATH: &str = "temp/torus_custom_property.gltf";
-// const COUPEPATH: &str = "temp/coupe.gltf";
+const COUPEPATH: &str = "temp/coupe.gltf";
 
 // #[derive(Resource)]
 // struct MyScene(Entity);
@@ -162,10 +162,23 @@ fn setup(
     //     ))
     //     .id();
 
-    let torus = commands
+    // let torus = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUSPATH)),
+    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {},
+    //     ))
+    //     .id();
+    
+    let coupe = commands
         .spawn((
             SceneBundle {
-                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUSPATH)),
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPEPATH)),
                 transform: Transform::from_xyz(0.0, 0.0, 0.0)
                     .with_rotation(Quat::from_rotation_y(0.0))
                     .with_scale(Vec3::splat(1.)),
@@ -279,11 +292,24 @@ fn process_scene(
                     };
 
                     // Spawn the new entity
-                    let mut entity_commands = commands.spawn(bundle);
+                    // let mut entity_commands = commands.spawn(bundle);
 
                     // If the original entity had a SkinnedMesh component, add it to the new entity
                     if let Ok(skinned_mesh) = skinned_mesh {
-                        entity_commands.insert(skinned_mesh);
+                        println!("a");
+                        commands.entity(entity).with_children(|parent| {
+                            let mut e = parent.spawn((
+                                bundle,
+                            ));
+                            e.insert(skinned_mesh);
+                        });
+                    } else {
+                        println!("b");
+                        commands.entity(entity).with_children(|parent| {
+                            parent.spawn((
+                                bundle,
+                            ));
+                        });
                     }
                 }
             }
