@@ -15,7 +15,7 @@ use tracing::{info, warn};
 
 use crate::{
     // load_json::{json_parse, JsonLineList},
-    JsonLineList, WireframeSettings, ATTRIBUTE_INDEX
+    JsonLineList, WireframeSettings, ATTRIBUTE_VERT_INDEX
 };
 
 pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings, custom_line_list: &Option<JsonLineList>) -> Result<()> {
@@ -186,10 +186,36 @@ impl mesh_to_line_list_custom for Mesh {
     }
 }
 
-fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList {
+pub fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList {
+    
+    println!("mesh_to_line_list_custom");
+    
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 
+    if let (
+        Some(VertexAttributeValues::Float32x3(positions)),
+    ) = (
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION),
+    ) {
+        info!("ATTRIBUTE_POSITION: valid attribute");
+    } else {
+        panic!("ATTRIBUTE_POSITION: invalid attribute");
+        //todo return error
+    }
+    
+    if let (
+        Some(VertexAttributeValues::Float32x3(normals)),
+    ) = (
+        mesh.attribute(Mesh::ATTRIBUTE_NORMAL),
+    ) {
+        info!("ATTRIBUTE_NORMAL: valid attribute");
+    } else {
+        panic!("ATTRIBUTE_NORMAL: invalid attribute");
+        //todo return error
+    }
+    
+    
     if let (
         Some(VertexAttributeValues::Float32x3(positions)),
         Some(VertexAttributeValues::Float32x3(normals)),
@@ -228,17 +254,30 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
                 }
             });
 
-        let index = mesh.attribute(ATTRIBUTE_INDEX).and_then(|attr| {
+        println!("a1");
+        
+        let index_vec = mesh.attribute(ATTRIBUTE_VERT_INDEX).and_then(|attr| {
+            println!("b1");
             if let VertexAttributeValues::Float32(values) = attr {
+                println!("c1");
+                info!("found {} ATTRIBUTE_VERT_INDEX values", values.len());
                 Some(values)
             } else {
+                println!("d1");
+                warn!("unable to get ATTRIBUTE_VERT_INDEX attribute");
                 None
             }
         });
+        
+        if index_vec.is_none() {
+            panic!("ATTRIBUTE_VERT_INDEX: invalid attribute");
+        }
+        
+        println!("e1");
 
         // Create a mapping from INDEX values to vertex indices
         let mut index_to_vertex = HashMap::new();
-        if let Some(index_values) = &index {
+        if let Some(index_values) = &index_vec {
             for (vertex_index, &index_value) in index_values.iter().enumerate() {
                 index_to_vertex.insert(index_value as u32, vertex_index as u32);
             }
