@@ -21,8 +21,7 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use fill_material::FillMaterial;
 use line_material::LineMaterial;
 use mesh_ops::{
-    get_smoothed_normals, line_list_to_mesh, mesh_to_line_list_custom, mesh_to_wireframe,
-    RandomizeVertexColors,
+    get_smoothed_normals, invert_normals, line_list_to_mesh, mesh_to_line_list_custom, mesh_to_wireframe, RandomizeVertexColors
 };
 use outline_material::OutlineMaterial;
 use std::time::Duration;
@@ -34,14 +33,16 @@ mod line_material;
 mod mesh_ops;
 mod outline_material;
 
-// const PATH: &str = "astro/scene.gltf";
-const ASTROPATH: &str = "astro_custom/scene.gltf";
+// const ASTROPATH: &str = "astro/scene.gltf";
+const ASTROPATH: &str = "temp/astro.gltf";
+// const ASTROPATH: &str = "astro_custom/scene.gltf";
 // const FOXPATH: &str = "fox.glb";
 // const PATH: &str = "sphere_flat.gltf";
 // const PATH: &str = "sphere.gltf";
 // const PATH: &str = "torus.gltf";
 const TORUSPATH: &str = "temp/torus_custom_property.gltf";
-const COUPEPATH: &str = "temp/coupe.gltf";
+const COUPEPATH: &str = "temp/coupe2.gltf";
+// const COUPEPATH: &str = "temp/discovery.gltf";
 
 // #[derive(Resource)]
 // struct MyScene(Entity);
@@ -106,12 +107,13 @@ fn main() {
         .add_plugins(MaterialPlugin::<LineMaterial>::default())
         .add_systems(Startup, setup)
         .add_systems(Update, play_animation_once_loaded.before(animate_targets))
-        // .add_systems(Update, process_scene)
-        .add_systems(Update, extras)
+        
+        .add_systems(Update, post_process)
         .add_systems(Update, ui_system) // Add this line
         // .add_systems(Update, ui_example_system)  // Add this line
         // .add_systems(Update, check_extras)
         // .add_systems(Update, check_for_gltf_extras)
+        // .add_systems(Update, rotate_wheels)
         .run();
 }
 
@@ -138,8 +140,8 @@ fn setup(
     let mut graph = AnimationGraph::new();
     let animations = graph
         .add_clips(
-            [GltfAssetLabel::Animation(0).from_asset(COUPEPATH)]
-                // [GltfAssetLabel::Animation(0).from_asset(ASTROPATH)]
+            // [GltfAssetLabel::Animation(0).from_asset(COUPEPATH)]
+                [GltfAssetLabel::Animation(0).from_asset(ASTROPATH)]
                 .into_iter()
                 .map(|path| assets.load(path)),
             1.0,
@@ -154,22 +156,22 @@ fn setup(
         graph: graph.clone(),
     });
 
-    // let astro = commands
-    //     .spawn((
-    //         SceneBundle {
-    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTROPATH)),
-    //             transform: Transform::from_xyz(0.0, -1.2, 0.0)
-    //                 .with_rotation(Quat::from_rotation_y(0.0))
-    //                 .with_scale(Vec3::splat(1.)),
-    //             ..default()
-    //         },
-    //         WireframeSettings {
-    //             // gltf_path: None,
-    //             // gltf_path: Some(String::from(ASTROPATH)),
+    let astro = commands
+        .spawn((
+            SceneBundle {
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTROPATH)),
+                transform: Transform::from_xyz(0.0, -1.2, 0.0)
+                    .with_rotation(Quat::from_rotation_y(0.0))
+                    .with_scale(Vec3::splat(1.)),
+                ..default()
+            },
+            WireframeSettings {
+                // gltf_path: None,
+                // gltf_path: Some(String::from(ASTROPATH)),
 
-    //         },
-    //     ))
-    //     .id();
+            },
+        ))
+        .id();
 
     // let torus = commands
     //     .spawn((
@@ -184,21 +186,35 @@ fn setup(
     //     ))
     //     .id();
 
-    let coupe = commands
-        .spawn((
-            SceneBundle {
-                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPEPATH)),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                    .with_rotation(Quat::from_rotation_y(0.0))
-                    .with_scale(Vec3::splat(1.)),
-                ..default()
-            },
-            WireframeSettings {},
-        ))
-        .id();
+    // let coupe = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPEPATH)),
+    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.0)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {},
+    //     ))
+    //     .id();
 }
 
-fn extras(
+#[derive(Component)]
+struct WheelRotator {
+    rotation_speed: f32,
+}
+
+fn rotate_wheels(
+    time: Res<Time>,
+    mut query: Query<(&WheelRotator, &mut Transform)>,
+) {
+    for (wheel, mut transform) in query.iter_mut() {
+        transform.rotate_x(wheel.rotation_speed * time.delta_seconds());
+    }
+}
+
+fn post_process(
     mut commands: Commands,
     mut events: EventReader<SceneInstanceReady>,
     extras: Query<(&Parent, &GltfExtras)>,
@@ -212,7 +228,18 @@ fn extras(
     shader_settings: Res<ShaderSettings>,
     wf: Query<&WireframeSettings>,
     skinned_meshes: Query<&SkinnedMesh>,
+     query: Query<(Entity, &Name), Without<WheelRotator>>,
 ) {
+    
+    for (entity, name) in query.iter() {
+        if name.to_lowercase().contains("wheel") {
+            commands.entity(entity).insert(WheelRotator {
+                rotation_speed: 50.0, // Adjust this value to change rotation speed
+            });
+        }
+    }
+    
+    
     for event in events.read() {
         let mut parsed_edges: Option<HashMap<String, JsonLineList>> = None;
 
@@ -236,9 +263,11 @@ fn extras(
                     commands.entity(entity).remove::<Handle<StandardMaterial>>();
 
                     flat_mesh.randomize_vertex_colors();
-                    let smoothed_normals = get_smoothed_normals(flat_mesh).unwrap();
-                    flat_mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals);
-
+                    let mut smoothed_normals: Vec<[f32; 3]> = get_smoothed_normals(flat_mesh).unwrap();
+                    // let smoothed_normals = flat_mesh.attribute(Mesh::ATTRIBUTE_NORMAL).unwrap();
+                    // invert_normals(&mut smoothed_normals);
+                    flat_mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals.clone());
+                    flat_mesh.compute_smooth_normals();
                     // Add FillMaterial component
                     let fill_material_handle = fill_materials.add(FillMaterial {
                         color: Vec4::new(0.0, 0.0, 0.0, 1.0),

@@ -270,7 +270,7 @@ pub fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> Line
         });
         
         if index_vec.is_none() {
-            panic!("ATTRIBUTE_VERT_INDEX: invalid attribute");
+            // panic!("ATTRIBUTE_VERT_INDEX: invalid attribute");
         }
         
         println!("e1");
@@ -520,3 +520,23 @@ pub fn get_smoothed_normals(mesh: &mut Mesh) -> Result<Vec<[f32; 3]>> {
         Err(anyhow!("missing required attributes"))
     }
 }
+
+pub fn inverted_normals(normals: &Vec<[f32; 3]>) -> Vec<[f32; 3]> {
+    normals.iter()
+        .map(|&[x, y, z]| [-x, -y, -z])
+        .collect()
+}
+
+pub fn invert_normals(normals: &mut Vec<[f32; 3]>) {
+    *normals = inverted_normals(normals);
+}
+
+// pub trait InvertNormals {
+//     fn invert_normals(&mut self);
+// }
+
+// impl InvertNormals for Vec<[f32; 3]> {
+//     fn invert_normals(&mut self) {
+//         invert_normals(self);
+//     }
+// }
