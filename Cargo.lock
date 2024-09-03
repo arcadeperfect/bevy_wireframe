@@ -1106,6 +1106,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_vaporwave"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "bevy_egui",
+ "bevy_panorbit_camera",
+ "rand",
+ "serde",
+ "serde_json",
+ "tracing",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bevy_window"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1147,21 +1162,6 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
  "winit",
-]
-
-[[package]]
-name = "bevy_wireframe"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bevy",
- "bevy_egui",
- "bevy_panorbit_camera",
- "rand",
- "serde",
- "serde_json",
- "tracing",
- "wasm-bindgen",
 ]
 
 [[package]]
