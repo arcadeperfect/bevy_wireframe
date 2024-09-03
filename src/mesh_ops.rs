@@ -17,8 +17,6 @@ use tracing::{info, warn};
 
 use crate::{ATTRIBUTE_SMOOTHED_NORMAL, ATTRIBUTE_VERT_INDEX};
 
-
-
 fn apply_random_vertex_colors(mesh: &mut Mesh) {
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
     let mut unique_positions: Vec<([f32; 3], [f32; 4])> = Vec::new();
@@ -55,8 +53,6 @@ fn apply_random_vertex_colors(mesh: &mut Mesh) {
     }
 }
 
-
-
 #[derive(Clone, Default)]
 pub struct LineList {
     pub lines: Vec<(Vert, Vert)>,
@@ -72,12 +68,12 @@ pub struct Vert {
 }
 
 pub trait MeshToLineList {
-    fn mesh_to_line_list_custom(&self, data: &crate::JsonLineList) -> LineList;
+    fn mesh_to_line_list_custom_data(&self, data: &crate::JsonLineList) -> LineList;
     fn mesh_to_line_list(&self) -> LineList;
 }
 
 impl MeshToLineList for Mesh {
-    fn mesh_to_line_list_custom(&self, data: &crate::JsonLineList) -> LineList {
+    fn mesh_to_line_list_custom_data(&self, data: &crate::JsonLineList) -> LineList {
         mesh_to_line_list_custom(self, data)
     }
     fn mesh_to_line_list(&self) -> LineList {
@@ -91,7 +87,6 @@ impl MeshToLineList for Mesh {
 pub trait VertexOps {
     fn smooth_normals_non_indexed(&mut self);
     fn randomize_vertex_colors(&mut self);
-
 }
 
 impl VertexOps for Mesh {
@@ -161,12 +156,11 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
     new_mesh
 }
 fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList {
-    println!("mesh_to_line_list_custom");
-
+    
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 
-    if let (Some(VertexAttributeValues::Float32x3(positions)),) =
+    if let (Some(VertexAttributeValues::Float32x3(_)),) =
         (mesh.attribute(Mesh::ATTRIBUTE_POSITION),)
     {
         info!("ATTRIBUTE_POSITION: valid attribute");
@@ -175,16 +169,15 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
         //todo return error
     }
 
-    if let (Some(VertexAttributeValues::Float32x3(normals)),) =
+    if let (Some(VertexAttributeValues::Float32x3(_)),) =
         (mesh.attribute(ATTRIBUTE_SMOOTHED_NORMAL),)
     {
         info!("ATTRIBUTE_SMOOTHED_NORMAL: valid attribute");
     } else {
-        
         warn!("there really should be a ATTRIBUTE_SMOOTHED_NORMAL attribute");
         // panic!("ATTRIBUTE_NORMAL: invalid attribute");
         //todo return error
-        if let (Some(VertexAttributeValues::Float32x3(normals)),) =
+        if let (Some(VertexAttributeValues::Float32x3(_)),) =
             (mesh.attribute(Mesh::ATTRIBUTE_NORMAL),)
         {
             info!("ATTRIBUTE_NORMAL: valid attribute");
@@ -193,16 +186,6 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
             //todo return error
         }
     }
-    
-    
-    // if let (Some(VertexAttributeValues::Float32x3(normals)),) =
-    //     (mesh.attribute(Mesh::ATTRIBUTE_NORMAL),)
-    // {
-    //     info!("ATTRIBUTE_NORMAL: valid attribute");
-    // } else {
-    //     panic!("ATTRIBUTE_NORMAL: invalid attribute");
-    //     //todo return error
-    // }
 
     if let (
         Some(VertexAttributeValues::Float32x3(positions)),
@@ -242,16 +225,14 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
                 }
             });
 
-        println!("a1");
+
 
         let index_vec = mesh.attribute(ATTRIBUTE_VERT_INDEX).and_then(|attr| {
-            println!("b1");
+
             if let VertexAttributeValues::Float32(values) = attr {
-                println!("c1");
                 info!("found {} ATTRIBUTE_VERT_INDEX values", values.len());
                 Some(values)
             } else {
-                println!("d1");
                 warn!("unable to get ATTRIBUTE_VERT_INDEX attribute");
                 None
             }
@@ -260,8 +241,6 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
         if index_vec.is_none() {
             // panic!("ATTRIBUTE_VERT_INDEX: invalid attribute");
         }
-
-        println!("e1");
 
         // Create a mapping from INDEX values to vertex indices
         let mut index_to_vertex = HashMap::new();

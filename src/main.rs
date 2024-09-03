@@ -11,31 +11,26 @@ use bevy::{
     scene::SceneInstanceReady,
 };
 
-use parse_extras::{parse_gltf_extra_json, JsonLineList};
-use serde_json::Value;
-use std::collections::HashMap;
-
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use fill_material::FillMaterial;
 use line_material::LineMaterial;
-use mesh_ops::{
-    get_smoothed_normals, line_list_to_mesh, MeshToLineList, VertexOps,
-    
-};
+use mesh_ops::{get_smoothed_normals, line_list_to_mesh, MeshToLineList, VertexOps};
 use outline_material::OutlineMaterial;
+use parse_extras::{parse_gltf_extra_json, JsonLineList};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::time::Duration;
 
 mod camera_plugin;
 mod fill_material;
 mod line_material;
-mod parse_extras;
-// mod load_json;
 mod mesh_ops;
 mod outline_material;
+mod parse_extras;
 
 // const ASTROPATH: &str = "astro/scene.gltf";
-const ASTROPATH: &str = "temp/astro.gltf";
+const ASTRO_PATH: &str = "temp/astro.gltf";
 // const ASTROPATH: &str = "astro_custom/scene.gltf";
 // const FOXPATH: &str = "fox.glb";
 // const PATH: &str = "sphere_flat.gltf";
@@ -114,6 +109,9 @@ fn main() {
         .run();
 }
 
+
+
+
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
@@ -134,38 +132,71 @@ fn setup(
     ));
 
     // Build the animation graph
-    let mut graph = AnimationGraph::new();
-    let animations = graph
+    let mut graph1a = AnimationGraph::new();
+    let animations1 = graph1a
         .add_clips(
             // [GltfAssetLabel::Animation(0).from_asset(COUPEPATH)]
-            [GltfAssetLabel::Animation(0).from_asset(COUPE_PATH)]
+            [GltfAssetLabel::Animation(0).from_asset(ASTRO_PATH)]
                 .into_iter()
                 .map(|path| assets.load(path)),
             1.0,
-            graph.root,
+            graph1a.root,
         )
         .collect();
 
     // Insert a resource with the current scene information
-    let graph = graphs.add(graph);
+    let graph1b = graphs.add(graph1a);
     commands.insert_resource(Animations {
-        animations,
-        graph: graph.clone(),
+        animations: animations1,
+        graph: graph1b.clone(),
     });
 
-    // let astro = commands
+    // // Build the animation graph
+    // let mut graph2a = AnimationGraph::new();
+    // let animations2 = graph2a
+    //     .add_clips(
+    //         // [GltfAssetLabel::Animation(0).from_asset(COUPEPATH)]
+    //         [GltfAssetLabel::Animation(0).from_asset(COUPE_PATH)]
+    //             .into_iter()
+    //             .map(|path| assets.load(path)),
+    //         1.0,
+    //         graph2a.root,
+    //     )
+    //     .collect();
+
+    // // Insert a resource with the current scene information
+    // let graph2b = graphs.add(graph2a);
+    // commands.insert_resource(Animations {
+    //     animations: animations2,
+    //     graph: graph2b.clone(),
+    // });
+    
+    // let coupe = commands
     //     .spawn((
     //         SceneBundle {
-    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTROPATH)),
-    //             transform: Transform::from_xyz(0.0, -1.2, 0.0)
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPE_PATH)),
+    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
     //                 .with_rotation(Quat::from_rotation_y(0.0))
-    //                 .with_scale(Vec3::splat(1.)),
+    //                 .with_scale(Vec3::splat(1.0)),
     //             ..default()
     //         },
-    //         WireframeSettings {
-    //         },
+    //         WireframeSettings {},
     //     ))
     //     .id();
+    
+    
+    let astro = commands
+        .spawn((
+            SceneBundle {
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTRO_PATH)),
+                transform: Transform::from_xyz(0.0, -1.2, 0.0)
+                    .with_rotation(Quat::from_rotation_y(0.0))
+                    .with_scale(Vec3::splat(1.)),
+                ..default()
+            },
+            WireframeSettings {},
+        ))
+        .id();
 
     // let torus = commands
     //     .spawn((
@@ -190,31 +221,20 @@ fn setup(
     //     },))
     //     .id();
 
-    let sphere_no_extras = commands
-        .spawn((
-            SceneBundle {
-                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(SPHERE_NO_EXTRAS_PATH)),
-                transform: Transform::from_xyz(1.0, 0.0, 0.0)
-                    .with_rotation(Quat::from_rotation_y(0.0))
-                    .with_scale(Vec3::splat(1.)),
-                ..default()
-            },
-            WireframeSettings {},
-        ))
-        .id();
+    // let sphere_no_extras = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(SPHERE_NO_EXTRAS_PATH)),
+    //             transform: Transform::from_xyz(1.0, 0.0, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {},
+    //     ))
+    //     .id();
 
-    let coupe = commands
-        .spawn((
-            SceneBundle {
-                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPE_PATH)),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                    .with_rotation(Quat::from_rotation_y(0.0))
-                    .with_scale(Vec3::splat(1.0)),
-                ..default()
-            },
-            WireframeSettings {},
-        ))
-        .id();
+   
 }
 
 #[derive(Component)]
@@ -253,7 +273,6 @@ fn post_process(
     }
 
     for event in events.read() {
-        
         // Only proceeed if the spawned mesh has a wireframe component
 
         if wf.get(event.parent).is_err() {
@@ -330,15 +349,13 @@ fn post_process(
                                         {
                                             parsed_line_list = Some(parsed_edge);
                                         } else {
-                                            info!("No line list data found for mesh, all triangles will be used");
+                                            warn!("key not found in json line list data");
                                         }
                                     } else {
-                                        info!("No gltf_primitive_index found for mesh, all triangles will be used");
+                                        warn!("no key found for this primitive");
                                     }
                                 } else {
-                                    info!(
-                                        "No json data found for mesh, all triangles will be used"
-                                    );
+                                    warn!("Unable to parse json");
                                 }
                             }
                         }
@@ -347,11 +364,14 @@ fn post_process(
                         }
                     }
 
+                    // LineList stores the data required to build a mesh of lines
+                    // It can be derived from gltf extra data, or generated for every triangle in the absence
+
                     let line_list;
 
                     match parsed_line_list {
                         Some(p) => {
-                            line_list = mesh.mesh_to_line_list_custom(p);
+                            line_list = mesh.mesh_to_line_list_custom_data(p);
                         }
                         None => {
                             line_list = mesh.mesh_to_line_list();
@@ -360,7 +380,7 @@ fn post_process(
 
                     let line_mesh = line_list_to_mesh(&line_list, &mesh);
                     let new_mesh_handle = mesh_assets.add(line_mesh);
-                    let skinned_mesh = skinned_meshes.get(entity).cloned();
+                    let skinned_mesh = skinned_meshes.get(entity).cloned(); // required for scenes with skinned mesh animations
 
                     let bundle = MaterialMeshBundle {
                         mesh: new_mesh_handle,
@@ -384,131 +404,6 @@ fn post_process(
         }
     }
 }
-
-// fn process_scene(
-//     mut commands: Commands,
-//     mut events: EventReader<SceneInstanceReady>,
-//     children: Query<&Children>,
-//     // parent: &Parent,
-//     meshes: Query<(Entity, &Handle<Mesh>)>,
-//     skinned_meshes: Query<&SkinnedMesh>,
-//     mut mesh_assets: ResMut<Assets<Mesh>>,
-//     mut line_materials: ResMut<Assets<LineMaterial>>,
-//     mut fill_materials: ResMut<Assets<FillMaterial>>, // Add FillMaterial resource
-//     mut outline_materials: ResMut<Assets<OutlineMaterial>>, // Add FillMaterial resource
-//     shader_settings: Res<ShaderSettings>,
-//     processable_scenes: Query<&WireframeSettings>,
-//     gltf_extras: Query<(Entity, &GltfExtras)>, // Modified this line
-//     gltf_scene_extras: Query<(Entity, &GltfSceneExtras)>,
-// ) {
-//     // for event in events.read() {
-//     //     if !processable_scenes.contains(event.parent) {
-//     //         continue;
-//     //     }
-//     //     println!("a");
-
-//     //     if let Ok(r) = gltf_extras.get(event.parent) {
-//     //         // println!("b");
-
-//     //         // println!("GLTF EXTRAS {:?}", r);
-//     //     }
-
-//     //     // let parsed_extra = None;
-
-//     //     // for (e, x) in gltf_extras.iter() {
-//     //     //     let z = gltf_extras.get(e);
-
-//     //     //     println!("Z {:?}", z);
-//     //     // }
-
-//     //     // for e in children.iter_descendants(event.parent) {
-//     //     //     // println!("Entity: {:?}", e);
-//     //     //     let z = gltf_extras.get(e);
-//     //     //     if z.is_ok() {
-//     //     //         // println!("Z {:?}", z);
-//     //     //         println!("Entity: {:?}", e);
-//     //     //         for se in children.iter_descendants(e){
-//     //     //             println!("  Entity: {:?}", se);
-//     //     //         }
-//     //     //     }
-//     //     // }
-
-//     //     let mut parsed_edges = None;
-
-//     //     for entity in children.iter_descendants(event.parent) {
-//     //         if let Ok((_, extras)) = gltf_scene_extras.get(entity) {
-//     //             parsed_edges = Some(parse_selected_edges(&extras.value).unwrap_or_default());
-//     //             //todo handle error
-//     //         }
-//     //     }
-
-//     //     println!("b");
-
-//     //     for entity in children.iter_descendants(event.parent) {
-//     //         if let (Ok((entity, mesh_handle)), Ok(wireframe_settings)) =
-//     //             (meshes.get(entity), processable_scenes.get(event.parent))
-//     //         {
-//     //             if let Some(flat_mesh) = mesh_assets.get_mut(mesh_handle) {
-//     //                 println!("Entity: {:?}", entity);
-
-//     //                 commands.entity(entity).remove::<Handle<StandardMaterial>>();
-//     //                 flat_mesh.randomize_vertex_colors();
-
-//     //                 let smoothed_normals = get_smoothed_normals(flat_mesh).unwrap();
-//     //                 flat_mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals);
-
-//     //                 let mut smooth_mesh = flat_mesh.clone();
-
-//     //                 // smooth_mesh.compute_smooth_normals();
-//     //                 // smooth_mesh.smooth_normals_non_indexed();
-//     //                 flat_mesh.duplicate_vertices();
-//     //                 flat_mesh.compute_flat_normals();
-//     //                 // flat_mesh.compute_normals();
-
-//     //                 // Add FillMaterial component
-//     //                 let fill_material_handle = fill_materials.add(FillMaterial {
-//     //                     color: Vec4::new(0.0, 0.0, 0.0, 1.0),
-//     //                     displacement: 0.0,
-//     //                     shininess: 200.0,
-//     //                     specular_strength: 1.0,
-//     //                 });
-//     //                 commands.entity(entity).insert(fill_material_handle.clone());
-
-//     //                 // Add OutlineMaterial component
-//     //                 let outline_material_handle = outline_materials.add(OutlineMaterial {
-//     //                     outline_width: shader_settings.outline_width,
-//     //                     ..default()
-//     //                 });
-//     //                 commands
-//     //                     .entity(entity)
-//     //                     .insert(outline_material_handle.clone());
-
-//     //                 // let custom_line_list = None;
-//     //                 match mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings, &parsed_edges) {
-//     //                     Ok(_) => {}
-//     //                     Err(e) => {
-//     //                         panic!("fuckkkkkkkk");
-//     //                         // warn!("Error: {:?}", e);
-//     //                     }
-//     //                 }
-//     //                 // mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings);
-
-//     //                 let new_mesh_handle = mesh_assets.add(smooth_mesh);
-//     //                 let skinned_mesh = skinned_meshes.get(entity).cloned();
-
-//     //                 let bundle = MaterialMeshBundle {
-//     //                     mesh: new_mesh_handle,
-//     //                     material: line_materials.add(LineMaterial {
-//     //                         displacement: 1.5,
-//     //                         ..default()
-//     //                     }),
-//     //                     ..Default::default()
-//     //                 };
-//     //             }
-//     //         }
-//     //     }
-//     // }
-// }
 
 fn play_animation_once_loaded(
     mut commands: Commands,
