@@ -3,7 +3,6 @@
     mesh_functions,
     skinning,
     morph::morph,
-    // forward_io::{Vertex},
     view_transformations::position_world_to_clip,
 }
 

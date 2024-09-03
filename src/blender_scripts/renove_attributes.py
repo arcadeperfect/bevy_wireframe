@@ -42,5 +42,5 @@ def remove_vertex_attribute(attribute_name):
 
 # Example usage:
 # Change '_VERT_INDEX' to the name of the attribute you want to remove
-attribute_to_remove = '_VERT_INDEX'
+attribute_to_remove = '_INDEX'
 remove_vertex_attribute(attribute_to_remove)

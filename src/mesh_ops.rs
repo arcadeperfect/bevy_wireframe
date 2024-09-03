@@ -1,10 +1,12 @@
+// #![allow(dead_code)]
+
 use anyhow::{anyhow, Result};
 
 use bevy::{
     math::Vec3,
     prelude::Mesh,
     render::{
-        mesh::{Indices, MeshVertexAttribute, VertexAttributeValues},
+        mesh::{Indices, VertexAttributeValues},
         render_asset::RenderAssetUsages,
     },
     utils::{HashMap, HashSet},
@@ -13,41 +15,9 @@ use bevy::{
 use rand::Rng;
 use tracing::{info, warn};
 
-use crate::{
-    // load_json::{json_parse, JsonLineList},
-    JsonLineList, WireframeSettings, ATTRIBUTE_VERT_INDEX
-};
+use crate::{ATTRIBUTE_SMOOTHED_NORMAL, ATTRIBUTE_VERT_INDEX};
 
-pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings, custom_line_list: &Option<JsonLineList>) -> Result<()> {
 
-    
-    match custom_line_list {
-        Some(c) => {
-            println!("Using custom line list");
-            let line_list = mesh.mesh_to_line_list_custom(c);
-            let line_mesh = line_list_to_mesh(&line_list, mesh);
-            *mesh = line_mesh;
-            Ok(())
-        }
-        None => {
-            println!("Using default line list");
-            let line_list = mesh.mesh_to_line_list();
-            let line_mesh = line_list_to_mesh(&line_list, mesh);
-            *mesh = line_mesh;
-            Ok(())
-        }
-    }
-}
-
-pub trait RandomizeVertexColors {
-    fn randomize_vertex_colors(&mut self);
-}
-
-impl RandomizeVertexColors for Mesh {
-    fn randomize_vertex_colors(&mut self) {
-        apply_random_vertex_colors(self);
-    }
-}
 
 fn apply_random_vertex_colors(mesh: &mut Mesh) {
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
@@ -85,10 +55,7 @@ fn apply_random_vertex_colors(mesh: &mut Mesh) {
     }
 }
 
-fn vec3_approx_eq(a: [f32; 3], b: [f32; 3]) -> bool {
-    const EPSILON: f32 = 1e-5;
-    (a[0] - b[0]).abs() < EPSILON && (a[1] - b[1]).abs() < EPSILON && (a[2] - b[2]).abs() < EPSILON
-}
+
 
 #[derive(Clone, Default)]
 pub struct LineList {
@@ -104,22 +71,40 @@ pub struct Vert {
     pub joint_weights: Option<[f32; 4]>,
 }
 
-pub trait mesh_to_line_list {
+pub trait MeshToLineList {
+    fn mesh_to_line_list_custom(&self, data: &crate::JsonLineList) -> LineList;
     fn mesh_to_line_list(&self) -> LineList;
 }
 
-impl mesh_to_line_list for Mesh {
+impl MeshToLineList for Mesh {
+    fn mesh_to_line_list_custom(&self, data: &crate::JsonLineList) -> LineList {
+        mesh_to_line_list_custom(self, data)
+    }
     fn mesh_to_line_list(&self) -> LineList {
         match mesh_to_line_list(self) {
             Ok(line_list) => line_list,
             Err(e) => panic!("Failed to convert mesh to line list: {}", e),
         }
+    }
+}
 
+pub trait VertexOps {
+    fn smooth_normals_non_indexed(&mut self);
+    fn randomize_vertex_colors(&mut self);
+
+}
+
+impl VertexOps for Mesh {
+    fn smooth_normals_non_indexed(&mut self) {
+        smooth_normals_non_indexed(self);
+    }
+    fn randomize_vertex_colors(&mut self) {
+        apply_random_vertex_colors(self);
     }
 }
 
 pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
-    let mut line_mesh = Mesh::new(
+    let mut new_mesh = Mesh::new(
         bevy::render::render_resource::PrimitiveTopology::LineList,
         RenderAssetUsages::RENDER_WORLD,
     );
@@ -130,7 +115,7 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
         .flat_map(|(start, end)| vec![start.position, end.position])
         .collect();
 
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    new_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
 
     let colors: Vec<[f32; 4]> = line_list
         .lines
@@ -139,7 +124,7 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
         .flatten()
         .collect();
 
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    new_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
 
     let normal: Vec<[f32; 3]> = line_list
         .lines
@@ -147,7 +132,7 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
         .flat_map(|(start, end)| vec![start.normal, end.normal])
         .collect();
 
-    line_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normal);
+    new_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normal);
 
     if let Some(VertexAttributeValues::Uint16x4(_)) = mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX) {
         let joint_indices: Vec<[u16; 4]> = line_list
@@ -156,7 +141,7 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
             .flat_map(|(start, end)| vec![start.joint_indices, end.joint_indices])
             .flatten()
             .collect();
-        line_mesh.insert_attribute(
+        new_mesh.insert_attribute(
             Mesh::ATTRIBUTE_JOINT_INDEX,
             VertexAttributeValues::Uint16x4(joint_indices),
         );
@@ -170,52 +155,55 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
             .flat_map(|(start, end)| vec![start.joint_weights, end.joint_weights])
             .flatten()
             .collect();
-        line_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
+        new_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
     }
 
-    line_mesh
+    new_mesh
 }
-
-pub trait mesh_to_line_list_custom {
-    fn mesh_to_line_list_custom(&self, data: &crate::JsonLineList) -> LineList;
-}
-
-impl mesh_to_line_list_custom for Mesh {
-    fn mesh_to_line_list_custom(&self, data: &crate::JsonLineList) -> LineList {
-        mesh_to_line_list_custom(self, data)
-    }
-}
-
-pub fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList {
-    
+fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList {
     println!("mesh_to_line_list_custom");
-    
+
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 
-    if let (
-        Some(VertexAttributeValues::Float32x3(positions)),
-    ) = (
-        mesh.attribute(Mesh::ATTRIBUTE_POSITION),
-    ) {
+    if let (Some(VertexAttributeValues::Float32x3(positions)),) =
+        (mesh.attribute(Mesh::ATTRIBUTE_POSITION),)
+    {
         info!("ATTRIBUTE_POSITION: valid attribute");
     } else {
         panic!("ATTRIBUTE_POSITION: invalid attribute");
         //todo return error
     }
-    
-    if let (
-        Some(VertexAttributeValues::Float32x3(normals)),
-    ) = (
-        mesh.attribute(Mesh::ATTRIBUTE_NORMAL),
-    ) {
-        info!("ATTRIBUTE_NORMAL: valid attribute");
+
+    if let (Some(VertexAttributeValues::Float32x3(normals)),) =
+        (mesh.attribute(ATTRIBUTE_SMOOTHED_NORMAL),)
+    {
+        info!("ATTRIBUTE_SMOOTHED_NORMAL: valid attribute");
     } else {
-        panic!("ATTRIBUTE_NORMAL: invalid attribute");
+        
+        warn!("there really should be a ATTRIBUTE_SMOOTHED_NORMAL attribute");
+        // panic!("ATTRIBUTE_NORMAL: invalid attribute");
         //todo return error
+        if let (Some(VertexAttributeValues::Float32x3(normals)),) =
+            (mesh.attribute(Mesh::ATTRIBUTE_NORMAL),)
+        {
+            info!("ATTRIBUTE_NORMAL: valid attribute");
+        } else {
+            panic!("ATTRIBUTE_NORMAL: invalid attribute");
+            //todo return error
+        }
     }
     
     
+    // if let (Some(VertexAttributeValues::Float32x3(normals)),) =
+    //     (mesh.attribute(Mesh::ATTRIBUTE_NORMAL),)
+    // {
+    //     info!("ATTRIBUTE_NORMAL: valid attribute");
+    // } else {
+    //     panic!("ATTRIBUTE_NORMAL: invalid attribute");
+    //     //todo return error
+    // }
+
     if let (
         Some(VertexAttributeValues::Float32x3(positions)),
         Some(VertexAttributeValues::Float32x3(normals)),
@@ -255,7 +243,7 @@ pub fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> Line
             });
 
         println!("a1");
-        
+
         let index_vec = mesh.attribute(ATTRIBUTE_VERT_INDEX).and_then(|attr| {
             println!("b1");
             if let VertexAttributeValues::Float32(values) = attr {
@@ -268,11 +256,11 @@ pub fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> Line
                 None
             }
         });
-        
+
         if index_vec.is_none() {
             // panic!("ATTRIBUTE_VERT_INDEX: invalid attribute");
         }
-        
+
         println!("e1");
 
         // Create a mapping from INDEX values to vertex indices
@@ -317,7 +305,6 @@ pub fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> Line
 }
 
 fn mesh_to_line_list(mesh: &Mesh) -> Result<LineList> {
-    
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
 
@@ -427,17 +414,6 @@ fn mesh_to_line_list(mesh: &Mesh) -> Result<LineList> {
     Ok(line_list)
 }
 
-
-pub trait SmoothNormalsNonIndexed {
-    fn smooth_normals_non_indexed(&mut self);
-}
-
-impl SmoothNormalsNonIndexed for Mesh {
-    fn smooth_normals_non_indexed(&mut self) {
-        smooth_normals_non_indexed(self);
-    }
-}
-
 fn smooth_normals_non_indexed(mesh: &mut Mesh) {
     if let (
         Some(VertexAttributeValues::Float32x3(positions)),
@@ -521,22 +497,7 @@ pub fn get_smoothed_normals(mesh: &mut Mesh) -> Result<Vec<[f32; 3]>> {
     }
 }
 
-pub fn inverted_normals(normals: &Vec<[f32; 3]>) -> Vec<[f32; 3]> {
-    normals.iter()
-        .map(|&[x, y, z]| [-x, -y, -z])
-        .collect()
+fn vec3_approx_eq(a: [f32; 3], b: [f32; 3]) -> bool {
+    const EPSILON: f32 = 1e-5;
+    (a[0] - b[0]).abs() < EPSILON && (a[1] - b[1]).abs() < EPSILON && (a[2] - b[2]).abs() < EPSILON
 }
-
-pub fn invert_normals(normals: &mut Vec<[f32; 3]>) {
-    *normals = inverted_normals(normals);
-}
-
-// pub trait InvertNormals {
-//     fn invert_normals(&mut self);
-// }
-
-// impl InvertNormals for Vec<[f32; 3]> {
-//     fn invert_normals(&mut self) {
-//         invert_normals(self);
-//     }
-// }

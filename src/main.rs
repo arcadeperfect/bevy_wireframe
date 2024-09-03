@@ -1,8 +1,6 @@
-use bevy::ecs::observer::TriggerTargets;
 use bevy::gltf::{GltfExtras, GltfSceneExtras};
 use bevy::{
     animation::animate_targets,
-    asset::AssetMetaCheck,
     core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
     gltf::GltfPlugin,
     prelude::*,
@@ -13,6 +11,7 @@ use bevy::{
     scene::SceneInstanceReady,
 };
 
+use parse_extras::{parse_gltf_extra_json, JsonLineList};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -21,7 +20,8 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use fill_material::FillMaterial;
 use line_material::LineMaterial;
 use mesh_ops::{
-    get_smoothed_normals, invert_normals, line_list_to_mesh, mesh_to_line_list_custom, mesh_to_wireframe, RandomizeVertexColors
+    get_smoothed_normals, line_list_to_mesh, MeshToLineList, VertexOps,
+    
 };
 use outline_material::OutlineMaterial;
 use std::time::Duration;
@@ -29,6 +29,7 @@ use std::time::Duration;
 mod camera_plugin;
 mod fill_material;
 mod line_material;
+mod parse_extras;
 // mod load_json;
 mod mesh_ops;
 mod outline_material;
@@ -40,9 +41,10 @@ const ASTROPATH: &str = "temp/astro.gltf";
 // const PATH: &str = "sphere_flat.gltf";
 // const PATH: &str = "sphere.gltf";
 // const PATH: &str = "torus.gltf";
-const TORUSPATH: &str = "temp/torus_custom_property.gltf";
-const COUPEPATH: &str = "temp/coupe2.gltf";
-// const COUPEPATH: &str = "temp/discovery.gltf";
+const TORUS_PATH: &str = "temp/torus.gltf";
+const COUPE_PATH: &str = "temp/coupe2.gltf";
+const SPHERE_NO_EXTRAS_PATH: &str = "temp/sphere_no_extras.gltf";
+// const COUPE_PATH: &str = "temp/discovery.gltf";
 
 // #[derive(Resource)]
 // struct MyScene(Entity);
@@ -107,13 +109,8 @@ fn main() {
         .add_plugins(MaterialPlugin::<LineMaterial>::default())
         .add_systems(Startup, setup)
         .add_systems(Update, play_animation_once_loaded.before(animate_targets))
-        
         .add_systems(Update, post_process)
         .add_systems(Update, ui_system) // Add this line
-        // .add_systems(Update, ui_example_system)  // Add this line
-        // .add_systems(Update, check_extras)
-        // .add_systems(Update, check_for_gltf_extras)
-        // .add_systems(Update, rotate_wheels)
         .run();
 }
 
@@ -141,7 +138,7 @@ fn setup(
     let animations = graph
         .add_clips(
             // [GltfAssetLabel::Animation(0).from_asset(COUPEPATH)]
-                [GltfAssetLabel::Animation(0).from_asset(ASTROPATH)]
+            [GltfAssetLabel::Animation(0).from_asset(COUPE_PATH)]
                 .into_iter()
                 .map(|path| assets.load(path)),
             1.0,
@@ -156,27 +153,24 @@ fn setup(
         graph: graph.clone(),
     });
 
-    let astro = commands
-        .spawn((
-            SceneBundle {
-                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTROPATH)),
-                transform: Transform::from_xyz(0.0, -1.2, 0.0)
-                    .with_rotation(Quat::from_rotation_y(0.0))
-                    .with_scale(Vec3::splat(1.)),
-                ..default()
-            },
-            WireframeSettings {
-                // gltf_path: None,
-                // gltf_path: Some(String::from(ASTROPATH)),
-
-            },
-        ))
-        .id();
+    // let astro = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTROPATH)),
+    //             transform: Transform::from_xyz(0.0, -1.2, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {
+    //         },
+    //     ))
+    //     .id();
 
     // let torus = commands
     //     .spawn((
     //         SceneBundle {
-    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUSPATH)),
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUS_PATH)),
     //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
     //                 .with_rotation(Quat::from_rotation_y(0.0))
     //                 .with_scale(Vec3::splat(1.)),
@@ -186,18 +180,41 @@ fn setup(
     //     ))
     //     .id();
 
-    // let coupe = commands
-    //     .spawn((
-    //         SceneBundle {
-    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPEPATH)),
-    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
-    //                 .with_rotation(Quat::from_rotation_y(0.0))
-    //                 .with_scale(Vec3::splat(1.0)),
-    //             ..default()
-    //         },
-    //         WireframeSettings {},
-    //     ))
+    // let torus2 = commands
+    //     .spawn((SceneBundle {
+    //         scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUS_PATH)),
+    //         transform: Transform::from_xyz(1.0, 0.0, 0.0)
+    //             .with_rotation(Quat::from_rotation_y(0.0))
+    //             .with_scale(Vec3::splat(1.)),
+    //         ..default()
+    //     },))
     //     .id();
+
+    let sphere_no_extras = commands
+        .spawn((
+            SceneBundle {
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(SPHERE_NO_EXTRAS_PATH)),
+                transform: Transform::from_xyz(1.0, 0.0, 0.0)
+                    .with_rotation(Quat::from_rotation_y(0.0))
+                    .with_scale(Vec3::splat(1.)),
+                ..default()
+            },
+            WireframeSettings {},
+        ))
+        .id();
+
+    let coupe = commands
+        .spawn((
+            SceneBundle {
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPE_PATH)),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                    .with_rotation(Quat::from_rotation_y(0.0))
+                    .with_scale(Vec3::splat(1.0)),
+                ..default()
+            },
+            WireframeSettings {},
+        ))
+        .id();
 }
 
 #[derive(Component)]
@@ -205,10 +222,7 @@ struct WheelRotator {
     rotation_speed: f32,
 }
 
-fn rotate_wheels(
-    time: Res<Time>,
-    mut query: Query<(&WheelRotator, &mut Transform)>,
-) {
+fn rotate_wheels(time: Res<Time>, mut query: Query<(&WheelRotator, &mut Transform)>) {
     for (wheel, mut transform) in query.iter_mut() {
         transform.rotate_x(wheel.rotation_speed * time.delta_seconds());
     }
@@ -228,9 +242,8 @@ fn post_process(
     shader_settings: Res<ShaderSettings>,
     wf: Query<&WireframeSettings>,
     skinned_meshes: Query<&SkinnedMesh>,
-     query: Query<(Entity, &Name), Without<WheelRotator>>,
+    query: Query<(Entity, &Name), Without<WheelRotator>>,
 ) {
-    
     for (entity, name) in query.iter() {
         if name.to_lowercase().contains("wheel") {
             commands.entity(entity).insert(WheelRotator {
@@ -238,36 +251,49 @@ fn post_process(
             });
         }
     }
-    
-    
+
     for event in events.read() {
-        let mut parsed_edges: Option<HashMap<String, JsonLineList>> = None;
+        
+        // Only proceeed if the spawned mesh has a wireframe component
+
+        if wf.get(event.parent).is_err() {
+            continue;
+        }
+
+        // Out of laziness I iterate through the whole scene until I find the scene level extra which contains a json dictionary
+        // that encodes the line lists generated in blender, with the index of the mesh as the key
+        // there will only be one of these, so once it finds it, it parses it and breaks the loop
+        // todo: better way to locate the scene level extra
+
+        let mut line_list_data_from_blender: Option<HashMap<String, JsonLineList>> = None;
 
         for e in children.iter_descendants(event.parent) {
-            if let Ok(scene_extras) = scene_extras.get(e) {
-                if let Some(parsed) = parse_gltf_extra(&scene_extras.value) {
-                    parsed_edges = Some(parsed);
+            if let Ok(loaded_scene_extras) = scene_extras.get(e) {
+                if let Some(parsed) = parse_gltf_extra_json(&loaded_scene_extras.value) {
+                    line_list_data_from_blender = Some(parsed);
                     break; // Assuming you only need to parse this once
                 }
             }
         }
 
-        println!("a");
-        
+        // Now we iterate through each mesh and apply the wireframe post processing
+        // If scene extras were found, it will generate the line lists according to the json dictionary
+        // Otherwise it will generate a line list for every edge of the mesh
+
         for entity in children.iter_descendants(event.parent) {
             if let Ok((mesh_handle, parent)) = mesh.get(entity) {
-                if let Some(flat_mesh) = mesh_assets.get_mut(mesh_handle) {
-                    
-                    println!("b");
-                    
+                if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {
                     commands.entity(entity).remove::<Handle<StandardMaterial>>();
 
-                    flat_mesh.randomize_vertex_colors();
-                    let mut smoothed_normals: Vec<[f32; 3]> = get_smoothed_normals(flat_mesh).unwrap();
-                    // let smoothed_normals = flat_mesh.attribute(Mesh::ATTRIBUTE_NORMAL).unwrap();
+                    mesh.randomize_vertex_colors(); //todo problem is this effects other instances of the mesh in scenes that don't have the wireframe component
+
+                    let smoothed_normals: Vec<[f32; 3]> = get_smoothed_normals(mesh).unwrap();
                     // invert_normals(&mut smoothed_normals);
-                    flat_mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals.clone());
-                    flat_mesh.compute_smooth_normals();
+                    mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals);
+
+                    mesh.duplicate_vertices();
+                    mesh.compute_flat_normals();
+
                     // Add FillMaterial component
                     let fill_material_handle = fill_materials.add(FillMaterial {
                         color: Vec4::new(0.0, 0.0, 0.0, 1.0),
@@ -286,202 +312,203 @@ fn post_process(
                         .entity(entity)
                         .insert(outline_material_handle.clone());
 
-                    // let custom_line_list = None;
-                    if let Ok(w) = wf.get(event.parent) {
-                        println!("c");
-                        if let Ok(extras) = extras.get(parent.get()) {
-                            println!("d");
-                            if let Ok(json_value) = serde_json::from_str::<Value>(&extras.1.value) {
-                                println!("e");
-                                if let Some(gltf_primitive_index) =
-                                    json_value.get("gltf_primitive_index")
+                    // To use the json line lists we need an index for each mesh which is encoded as a mesh level extra
+                    // If this is succesfully parsed, and if the json dictionary was parsed and contains the key, we can use the line list
+                    // Otherwise we generate a line list for every edge of the mesh
+
+                    let mut parsed_line_list: Option<&JsonLineList> = None;
+
+                    match &line_list_data_from_blender {
+                        Some(blender_data) => {
+                            if let Ok(mesh_extra) = extras.get(parent.get()) {
+                                if let Ok(json_value) =
+                                    serde_json::from_str::<Value>(&mesh_extra.1.value)
                                 {
-                                    println!("f");
-                                    let key = gltf_primitive_index.to_string();
-
-                                    // Safely access parsed_edges
-                                    match &parsed_edges {
-                                        Some(extras) => {
-                                            if let Some(parsed_edge) = extras.get(&key) {
-                                                println!("g");
-                                                let smooth_mesh = flat_mesh.clone();
-
-                                                let line_list =
-                                                    flat_mesh.mesh_to_line_list_custom(parsed_edge);
-                                                let line_mesh =
-                                                    line_list_to_mesh(&line_list, &smooth_mesh);
-
-                                                let new_mesh_handle = mesh_assets.add(line_mesh);
-                                                let skinned_mesh =
-                                                    skinned_meshes.get(entity).cloned();
-
-                                                let bundle = MaterialMeshBundle {
-                                                    mesh: new_mesh_handle,
-                                                    material: line_materials.add(LineMaterial {
-                                                        displacement: 1.5,
-                                                        ..default()
-                                                    }),
-                                                    ..Default::default()
-                                                };
-                                    
-                                                
-                                                // let mut entity_commands = commands.spawn(bundle);
-                                    
-                                                // // If the original entity had a SkinnedMesh component, add it to the new entity
-                                                // if let Ok(skinned_mesh) = skinned_mesh {
-                                                //     entity_commands.insert(skinned_mesh);
-                                                // }
-                                    
-                                    
-                                                commands.entity(entity).with_children(|parent| {
-                                                    let mut child_entity = parent.spawn(bundle);
-                                                    
-                                                    // If the original entity had a SkinnedMesh component, add it to the new entity
-                                                    if let Ok(skinned_mesh) = skinned_mesh {
-                                                        child_entity.insert(skinned_mesh);
-                                                    }
-                                                });
-                                                
-                                            }
+                                    if let Some(key) = json_value.get("gltf_primitive_index") {
+                                        if let Some(parsed_edge) =
+                                            blender_data.get(&key.to_string())
+                                        {
+                                            parsed_line_list = Some(parsed_edge);
+                                        } else {
+                                            info!("No line list data found for mesh, all triangles will be used");
                                         }
-                                        None => {}
+                                    } else {
+                                        info!("No gltf_primitive_index found for mesh, all triangles will be used");
                                     }
+                                } else {
+                                    info!(
+                                        "No json data found for mesh, all triangles will be used"
+                                    );
                                 }
-                            } else {
-                                warn!("Failed to parse JSON in extras");
                             }
                         }
+                        None => {
+                            info!("No line list data found for mesh, all triangles will be used");
+                        }
                     }
+
+                    let line_list;
+
+                    match parsed_line_list {
+                        Some(p) => {
+                            line_list = mesh.mesh_to_line_list_custom(p);
+                        }
+                        None => {
+                            line_list = mesh.mesh_to_line_list();
+                        }
+                    }
+
+                    let line_mesh = line_list_to_mesh(&line_list, &mesh);
+                    let new_mesh_handle = mesh_assets.add(line_mesh);
+                    let skinned_mesh = skinned_meshes.get(entity).cloned();
+
+                    let bundle = MaterialMeshBundle {
+                        mesh: new_mesh_handle,
+                        material: line_materials.add(LineMaterial {
+                            displacement: 1.5,
+                            ..default()
+                        }),
+                        ..Default::default()
+                    };
+
+                    commands.entity(entity).with_children(|parent| {
+                        let mut child_entity = parent.spawn(bundle);
+
+                        // If the original entity had a SkinnedMesh component, add it to the new entity
+                        if let Ok(skinned_mesh) = skinned_mesh {
+                            child_entity.insert(skinned_mesh);
+                        }
+                    });
                 }
             }
         }
     }
 }
 
-fn process_scene(
-    mut commands: Commands,
-    mut events: EventReader<SceneInstanceReady>,
-    children: Query<&Children>,
-    // parent: &Parent,
-    meshes: Query<(Entity, &Handle<Mesh>)>,
-    skinned_meshes: Query<&SkinnedMesh>,
-    mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut line_materials: ResMut<Assets<LineMaterial>>,
-    mut fill_materials: ResMut<Assets<FillMaterial>>, // Add FillMaterial resource
-    mut outline_materials: ResMut<Assets<OutlineMaterial>>, // Add FillMaterial resource
-    shader_settings: Res<ShaderSettings>,
-    processable_scenes: Query<&WireframeSettings>,
-    gltf_extras: Query<(Entity, &GltfExtras)>, // Modified this line
-    gltf_scene_extras: Query<(Entity, &GltfSceneExtras)>,
-) {
-    // for event in events.read() {
-    //     if !processable_scenes.contains(event.parent) {
-    //         continue;
-    //     }
-    //     println!("a");
+// fn process_scene(
+//     mut commands: Commands,
+//     mut events: EventReader<SceneInstanceReady>,
+//     children: Query<&Children>,
+//     // parent: &Parent,
+//     meshes: Query<(Entity, &Handle<Mesh>)>,
+//     skinned_meshes: Query<&SkinnedMesh>,
+//     mut mesh_assets: ResMut<Assets<Mesh>>,
+//     mut line_materials: ResMut<Assets<LineMaterial>>,
+//     mut fill_materials: ResMut<Assets<FillMaterial>>, // Add FillMaterial resource
+//     mut outline_materials: ResMut<Assets<OutlineMaterial>>, // Add FillMaterial resource
+//     shader_settings: Res<ShaderSettings>,
+//     processable_scenes: Query<&WireframeSettings>,
+//     gltf_extras: Query<(Entity, &GltfExtras)>, // Modified this line
+//     gltf_scene_extras: Query<(Entity, &GltfSceneExtras)>,
+// ) {
+//     // for event in events.read() {
+//     //     if !processable_scenes.contains(event.parent) {
+//     //         continue;
+//     //     }
+//     //     println!("a");
 
-    //     if let Ok(r) = gltf_extras.get(event.parent) {
-    //         // println!("b");
+//     //     if let Ok(r) = gltf_extras.get(event.parent) {
+//     //         // println!("b");
 
-    //         // println!("GLTF EXTRAS {:?}", r);
-    //     }
+//     //         // println!("GLTF EXTRAS {:?}", r);
+//     //     }
 
-    //     // let parsed_extra = None;
+//     //     // let parsed_extra = None;
 
-    //     // for (e, x) in gltf_extras.iter() {
-    //     //     let z = gltf_extras.get(e);
+//     //     // for (e, x) in gltf_extras.iter() {
+//     //     //     let z = gltf_extras.get(e);
 
-    //     //     println!("Z {:?}", z);
-    //     // }
+//     //     //     println!("Z {:?}", z);
+//     //     // }
 
-    //     // for e in children.iter_descendants(event.parent) {
-    //     //     // println!("Entity: {:?}", e);
-    //     //     let z = gltf_extras.get(e);
-    //     //     if z.is_ok() {
-    //     //         // println!("Z {:?}", z);
-    //     //         println!("Entity: {:?}", e);
-    //     //         for se in children.iter_descendants(e){
-    //     //             println!("  Entity: {:?}", se);
-    //     //         }
-    //     //     }
-    //     // }
+//     //     // for e in children.iter_descendants(event.parent) {
+//     //     //     // println!("Entity: {:?}", e);
+//     //     //     let z = gltf_extras.get(e);
+//     //     //     if z.is_ok() {
+//     //     //         // println!("Z {:?}", z);
+//     //     //         println!("Entity: {:?}", e);
+//     //     //         for se in children.iter_descendants(e){
+//     //     //             println!("  Entity: {:?}", se);
+//     //     //         }
+//     //     //     }
+//     //     // }
 
-    //     let mut parsed_edges = None;
+//     //     let mut parsed_edges = None;
 
-    //     for entity in children.iter_descendants(event.parent) {
-    //         if let Ok((_, extras)) = gltf_scene_extras.get(entity) {
-    //             parsed_edges = Some(parse_selected_edges(&extras.value).unwrap_or_default());
-    //             //todo handle error
-    //         }
-    //     }
+//     //     for entity in children.iter_descendants(event.parent) {
+//     //         if let Ok((_, extras)) = gltf_scene_extras.get(entity) {
+//     //             parsed_edges = Some(parse_selected_edges(&extras.value).unwrap_or_default());
+//     //             //todo handle error
+//     //         }
+//     //     }
 
-    //     println!("b");
+//     //     println!("b");
 
-    //     for entity in children.iter_descendants(event.parent) {
-    //         if let (Ok((entity, mesh_handle)), Ok(wireframe_settings)) =
-    //             (meshes.get(entity), processable_scenes.get(event.parent))
-    //         {
-    //             if let Some(flat_mesh) = mesh_assets.get_mut(mesh_handle) {
-    //                 println!("Entity: {:?}", entity);
+//     //     for entity in children.iter_descendants(event.parent) {
+//     //         if let (Ok((entity, mesh_handle)), Ok(wireframe_settings)) =
+//     //             (meshes.get(entity), processable_scenes.get(event.parent))
+//     //         {
+//     //             if let Some(flat_mesh) = mesh_assets.get_mut(mesh_handle) {
+//     //                 println!("Entity: {:?}", entity);
 
-    //                 commands.entity(entity).remove::<Handle<StandardMaterial>>();
-    //                 flat_mesh.randomize_vertex_colors();
+//     //                 commands.entity(entity).remove::<Handle<StandardMaterial>>();
+//     //                 flat_mesh.randomize_vertex_colors();
 
-    //                 let smoothed_normals = get_smoothed_normals(flat_mesh).unwrap();
-    //                 flat_mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals);
+//     //                 let smoothed_normals = get_smoothed_normals(flat_mesh).unwrap();
+//     //                 flat_mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals);
 
-    //                 let mut smooth_mesh = flat_mesh.clone();
+//     //                 let mut smooth_mesh = flat_mesh.clone();
 
-    //                 // smooth_mesh.compute_smooth_normals();
-    //                 // smooth_mesh.smooth_normals_non_indexed();
-    //                 flat_mesh.duplicate_vertices();
-    //                 flat_mesh.compute_flat_normals();
-    //                 // flat_mesh.compute_normals();
+//     //                 // smooth_mesh.compute_smooth_normals();
+//     //                 // smooth_mesh.smooth_normals_non_indexed();
+//     //                 flat_mesh.duplicate_vertices();
+//     //                 flat_mesh.compute_flat_normals();
+//     //                 // flat_mesh.compute_normals();
 
-    //                 // Add FillMaterial component
-    //                 let fill_material_handle = fill_materials.add(FillMaterial {
-    //                     color: Vec4::new(0.0, 0.0, 0.0, 1.0),
-    //                     displacement: 0.0,
-    //                     shininess: 200.0,
-    //                     specular_strength: 1.0,
-    //                 });
-    //                 commands.entity(entity).insert(fill_material_handle.clone());
+//     //                 // Add FillMaterial component
+//     //                 let fill_material_handle = fill_materials.add(FillMaterial {
+//     //                     color: Vec4::new(0.0, 0.0, 0.0, 1.0),
+//     //                     displacement: 0.0,
+//     //                     shininess: 200.0,
+//     //                     specular_strength: 1.0,
+//     //                 });
+//     //                 commands.entity(entity).insert(fill_material_handle.clone());
 
-    //                 // Add OutlineMaterial component
-    //                 let outline_material_handle = outline_materials.add(OutlineMaterial {
-    //                     outline_width: shader_settings.outline_width,
-    //                     ..default()
-    //                 });
-    //                 commands
-    //                     .entity(entity)
-    //                     .insert(outline_material_handle.clone());
+//     //                 // Add OutlineMaterial component
+//     //                 let outline_material_handle = outline_materials.add(OutlineMaterial {
+//     //                     outline_width: shader_settings.outline_width,
+//     //                     ..default()
+//     //                 });
+//     //                 commands
+//     //                     .entity(entity)
+//     //                     .insert(outline_material_handle.clone());
 
-    //                 // let custom_line_list = None;
-    //                 match mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings, &parsed_edges) {
-    //                     Ok(_) => {}
-    //                     Err(e) => {
-    //                         panic!("fuckkkkkkkk");
-    //                         // warn!("Error: {:?}", e);
-    //                     }
-    //                 }
-    //                 // mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings);
+//     //                 // let custom_line_list = None;
+//     //                 match mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings, &parsed_edges) {
+//     //                     Ok(_) => {}
+//     //                     Err(e) => {
+//     //                         panic!("fuckkkkkkkk");
+//     //                         // warn!("Error: {:?}", e);
+//     //                     }
+//     //                 }
+//     //                 // mesh_to_wireframe(&mut smooth_mesh, &wireframe_settings);
 
-    //                 let new_mesh_handle = mesh_assets.add(smooth_mesh);
-    //                 let skinned_mesh = skinned_meshes.get(entity).cloned();
+//     //                 let new_mesh_handle = mesh_assets.add(smooth_mesh);
+//     //                 let skinned_mesh = skinned_meshes.get(entity).cloned();
 
-    //                 let bundle = MaterialMeshBundle {
-    //                     mesh: new_mesh_handle,
-    //                     material: line_materials.add(LineMaterial {
-    //                         displacement: 1.5,
-    //                         ..default()
-    //                     }),
-    //                     ..Default::default()
-    //                 };
-    //             }
-    //         }
-    //     }
-    // }
-}
+//     //                 let bundle = MaterialMeshBundle {
+//     //                     mesh: new_mesh_handle,
+//     //                     material: line_materials.add(LineMaterial {
+//     //                         displacement: 1.5,
+//     //                         ..default()
+//     //                     }),
+//     //                     ..Default::default()
+//     //                 };
+//     //             }
+//     //         }
+//     //     }
+//     // }
+// }
 
 fn play_animation_once_loaded(
     mut commands: Commands,
@@ -521,7 +548,7 @@ fn ui_system(
             egui::Slider::new(&mut shader_settings.outline_width, 0.0..=1.0).text("Outline Width"),
         );
         ui.add(
-            egui::Slider::new(&mut shader_settings.wireframe_displacement, 0.0..=1.0)
+            egui::Slider::new(&mut shader_settings.wireframe_displacement, 0.0..=5.0)
                 .text("Wireframe Displacement"),
         );
         ui.add(
@@ -561,15 +588,10 @@ fn ui_system(
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-struct GltfExtra {
-    selected_edges_json: String,
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct JsonLineList {
-    pub line_list: Vec<[u32; 2]>,
-}
+// #[derive(serde::Deserialize, serde::Serialize, Debug)]
+// struct GltfExtra {
+//     selected_edges_json: String,
+// }
 
 impl From<Vec<Vec<i32>>> for JsonLineList {
     fn from(edges: Vec<Vec<i32>>) -> Self {
@@ -581,47 +603,6 @@ impl From<Vec<Vec<i32>>> for JsonLineList {
     }
 }
 
-fn parse_gltf_extra(json_str: &str) -> Option<HashMap<String, JsonLineList>> {
-    serde_json::from_str::<Value>(json_str)
-        .ok()
-        .and_then(|json_value| {
-            json_value
-                .get("gltf_all_selected_edges")
-                .and_then(|edges_str| {
-                    serde_json::from_str::<Value>(edges_str.as_str()?)
-                        .ok()
-                        .map(|edges_json| {
-                            let mut result = HashMap::new();
-                            if let Some(edges_obj) = edges_json.as_object() {
-                                for (key, value) in edges_obj {
-                                    if let Some(edge_array) = value.as_array() {
-                                        let line_list: Vec<[u32; 2]> = edge_array
-                                            .iter()
-                                            .filter_map(|pair| {
-                                                if let Some(pair_array) = pair.as_array() {
-                                                    if pair_array.len() == 2 {
-                                                        Some([
-                                                            pair_array[0].as_u64()? as u32,
-                                                            pair_array[1].as_u64()? as u32,
-                                                        ])
-                                                    } else {
-                                                        None
-                                                    }
-                                                } else {
-                                                    None
-                                                }
-                                            })
-                                            .collect();
-                                        result.insert(key.clone(), JsonLineList { line_list });
-                                    }
-                                }
-                            }
-                            result
-                        })
-                })
-        })
-}
-
 // fn parse_gltf_extra(json_str: &str) -> Result<JsonLineList, serde_json::Error> {
 //     let gltf_extra: GltfExtra = serde_json::from_str(json_str)?;
 
@@ -629,21 +610,3 @@ fn parse_gltf_extra(json_str: &str) -> Option<HashMap<String, JsonLineList>> {
 
 //     Ok(JsonLineList::from(edges))
 // }
-
-fn parse_selected_edges(
-    json_str: &str,
-) -> Result<HashMap<String, JsonLineList>, serde_json::Error> {
-    let parsed: Value = serde_json::from_str(json_str)?;
-    let mut result = HashMap::new();
-
-    if let Value::Object(obj) = parsed {
-        if let Some(Value::String(edges_str)) = obj.get("gltf_all_selected_edges") {
-            let edges: HashMap<String, Vec<[u32; 2]>> = serde_json::from_str(edges_str)?;
-            for (key, value) in edges {
-                result.insert(key, JsonLineList { line_list: value });
-            }
-        }
-    }
-
-    Ok(result)
-}
