@@ -1,9 +1,20 @@
+use bevy::gltf::GltfExtras;
 use bevy::{
-    animation::animate_targets, asset::AssetMetaCheck, core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping}, gltf::GltfPlugin, prelude::*, render::{
+    animation::animate_targets,
+    asset::AssetMetaCheck,
+    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
+    gltf::GltfPlugin,
+    prelude::*,
+    render::{
         mesh::{skinning::SkinnedMesh, MeshVertexAttribute},
         render_resource::VertexFormat,
-    }, scene::SceneInstanceReady
+    },
+    scene::SceneInstanceReady,
 };
+
+// mod window_resize_plugin;
+// use window_resize_plugin::WindowResizePlugin;
+
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use fill_material::FillMaterial;
@@ -21,10 +32,11 @@ mod outline_material;
 
 // const PATH: &str = "astro/scene.gltf";
 const ASTROPATH: &str = "astro_custom/scene.gltf";
-const FOXPATH: &str = "fox.glb";
+// const FOXPATH: &str = "fox.glb";
 // const PATH: &str = "sphere_flat.gltf";
 // const PATH: &str = "sphere.gltf";
 // const PATH: &str = "torus.gltf";
+const TORUSPATH: &str = "temp/torus_custom_property.gltf";
 
 // #[derive(Resource)]
 // struct MyScene(Entity);
@@ -62,7 +74,7 @@ impl Default for ShaderSettings {
 
 #[derive(Component)]
 struct WireframeSettings {
-    gltf_path: Option<String>,
+    // gltf_path: Option<String>,
 }
 
 const ATTRIBUTE_INDEX: MeshVertexAttribute =
@@ -70,6 +82,7 @@ const ATTRIBUTE_INDEX: MeshVertexAttribute =
 
 fn main() {
     App::new()
+        // .add_plugins(WindowResizePlugin)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(ShaderSettings::default())
         .add_plugins(
@@ -86,6 +99,8 @@ fn main() {
         .add_systems(Update, process_scene)
         .add_systems(Update, ui_system) // Add this line
         // .add_systems(Update, ui_example_system)  // Add this line
+        // .add_systems(Update, check_extras)
+        // .add_systems(Update, check_for_gltf_extras)
         .run();
 }
 
@@ -138,11 +153,26 @@ fn setup(
             },
             WireframeSettings {
                 // gltf_path: None,
-                gltf_path: Some(String::from(ASTROPATH)),
+                // gltf_path: Some(String::from(ASTROPATH)),
 
             },
         ))
         .id();
+
+    // let torus = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUSPATH)),
+    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {
+            
+    //         },
+    //     ))
+    //     .id();
 
     // let fox = commands
     //     .spawn((
@@ -158,6 +188,8 @@ fn setup(
     //     .id();
 }
 
+
+
 fn process_scene(
     mut commands: Commands,
     mut events: EventReader<SceneInstanceReady>,
@@ -170,18 +202,24 @@ fn process_scene(
     mut outline_materials: ResMut<Assets<OutlineMaterial>>, // Add FillMaterial resource
     shader_settings: Res<ShaderSettings>,
     processable_scenes: Query<&WireframeSettings>,
+    gltf_extras: Query<(Entity, &GltfExtras)>, // Modified this line
 ) {
     for event in events.read() {
         if !processable_scenes.contains(event.parent) {
             continue;
         }
 
-        if let Ok(wireframe_settings) = processable_scenes.get(event.parent) {
-            let use_json = wireframe_settings.gltf_path.is_some();
-            println!("Using JSON: {:?}", use_json);
+        // Print extras for the parent entity
+        if let Ok((_, extras)) = gltf_extras.get(event.parent) {
+            println!("Parent Extras: {:?}", extras);
         }
+        
         // if event.parent == my_scene_entity.0 {
         for entity in children.iter_descendants(event.parent) {
+            if let Ok((_, extras)) = gltf_extras.get(entity) {
+                println!("Child Entity Extras: {:?}", extras);
+            }
+
             if let (Ok((entity, mesh_handle)), Ok(wireframe_settings)) =
                 (meshes.get(entity), processable_scenes.get(event.parent))
             {

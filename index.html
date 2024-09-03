@@ -1,14 +1,114 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bevy Vector Style</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="row header">
+            <h1>Bevy Vector Style</h1>
+        </div>
+        
+        <div class="row content">
+            <div id="wasm-container"></div>
+        </div>
+
+        <div class="row header">
+            <h2>Second Header</h2>
+        </div>
+        
+        <div class="row footer">
+            <p>Lorem, ipsum dolor sit amet consectetur adipisicing elit.</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import init from './out/bevy_wireframe.js';
+        
+        async function run() {
+            const wasmContainer = document.getElementById('wasm-container');
+            
+            // Create a mutation observer to watch for the canvas being added to the body
+            const observer = new MutationObserver((mutations) => {
+                for (let mutation of mutations) {
+                    for (let node of mutation.addedNodes) {
+                        if (node.tagName === 'CANVAS') {
+                            node.style.width = '100%';
+                            node.style.height = '100%';
+                            wasmContainer.appendChild(node);
+                            observer.disconnect(); // Stop observing once we've moved the canvas
+                        }
+                    }
+                }
+            });
+    
+            // Start observing the document body for changes
+            observer.observe(document.body, { childList: true });
+    
+            // Initialize the WebAssembly module
+            await init();
+        }
+    
+        run();
+    </script>
+</body>
+</html> -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bevy Wireframe</title>
+    <title>Bevy Vector Style</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Mono&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="color-scheme-home">
+    <div class="grid">
+        <div class="main-column">
+            <h1 class="main-heading">Bevy Vector Style</h1>
+            <div id="wasm-container"></div>
+            <h2>Second Header</h2>
+            <p>Lorem, ipsum dolor sit amet consectetur adipisicing elit.</p>
+        </div>
+        <div class="sidebar-column">
+            <div class="social-links">
+                <div><a href="#">Link 1</a></div>
+                <div><a href="#">Link 2</a></div>
+                <div><a href="#">Link 3</a></div>
+            </div>
+            <a href="/" class="big-side-text">SIDEBAR</a>
+        </div>
+    </div>
+
     <script type="module">
         import init from './out/bevy_wireframe.js';
-        init();
+        
+        async function run() {
+            const wasmContainer = document.getElementById('wasm-container');
+            
+            const observer = new MutationObserver((mutations) => {
+                for (let mutation of mutations) {
+                    for (let node of mutation.addedNodes) {
+                        if (node.tagName === 'CANVAS') {
+                            node.style.width = '100%';
+                            node.style.height = '100%';
+                            wasmContainer.appendChild(node);
+                            observer.disconnect();
+                        }
+                    }
+                }
+            });
+    
+            observer.observe(document.body, { childList: true });
+    
+            await init();
+        }
+    
+        run();
     </script>
 </body>
 </html>

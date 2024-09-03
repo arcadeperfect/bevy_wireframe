@@ -21,17 +21,19 @@ use crate::{
 pub fn mesh_to_wireframe(mesh: &mut Mesh, settings: &WireframeSettings) -> Result<()> {
     // apply_random_vertex_colors(mesh);
 
-    let line_list = if let Some(_) = &settings.gltf_path {
-        // Only call json_parse if gltf_path is Some
-        match json_parse(settings) {
-            Ok(parsed_data) => mesh.mesh_to_line_list_custom(parsed_data),
-            Err(e) => panic!("Failed to parse JSON: {}", e),
-            // Err(e) => return Err(anyhow::anyhow!("Failed to parse JSON: {}", e)),
-        }
-    } else {
-        info!("No JSON file provided, computing line list from mesh vertices");
-        mesh.mesh_to_line_list()
-    };
+    // let line_list = if let Some(_) = &settings.gltf_path {
+    //     // Only call json_parse if gltf_path is Some
+    //     match json_parse(settings) {
+    //         Ok(parsed_data) => mesh.mesh_to_line_list_custom(parsed_data),
+    //         Err(e) => panic!("Failed to parse JSON: {}", e),
+    //         // Err(e) => return Err(anyhow::anyhow!("Failed to parse JSON: {}", e)),
+    //     }
+    // } else {
+    //     info!("No JSON file provided, computing line list from mesh vertices");
+    //     mesh.mesh_to_line_list()
+    // };
+    
+    let line_list = mesh.mesh_to_line_list();
 
     let line_mesh = line_list_to_mesh(&line_list, mesh);
     *mesh = line_mesh;
