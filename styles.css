@@ -1,0 +1,286 @@
+:root {
+  --base-main-bg: black;
+  --base-main-text: white;
+  --base-sidebar-bg: white;
+  --base-sidebar-text: black;
+  --heading-weight: normal;
+
+  --accent-main: #1fe0ac;
+  --accent-sidebar: #00ff15;
+}
+
+.color-scheme-home {
+  --base-main-bg: #222;
+  --base-main-text: #EEE;
+  --base-sidebar-bg: #EEE;
+  --base-sidebar-text: #222;
+  --accent-main: #EEE;
+  --accent-sidebar: #00ff15;
+}
+
+/* Alternate Color Scheme 1 */
+.color-scheme-1 {
+  --base-main-bg: #f0f8ff;
+  --base-main-text: #f50000;
+  --base-sidebar-bg: #333;
+  --base-sidebar-text: #f0f8ff;
+  --accent-main: #06ff0e;
+  --accent-sidebar: #00ff15;
+}
+
+/* Alternate Color Scheme 2 */
+.color-scheme-2 {
+  --base-main-bg: #00ff15;
+  --base-main-text: #111;
+  --base-sidebar-bg: #111;
+  --base-sidebar-text: #ffebcd;
+  --accent-main: #ff56b9;
+  --accent-sidebar: #00ff15;
+}
+
+.color-scheme-3 {
+  --base-main-bg: rgb(10, 10, 10);
+  --base-main-text: #ffebcd;
+  --base-sidebar-bg: #ffebcd;
+  --base-sidebar-text: rgb(10, 10, 1);
+  --accent-main: #ff56b9;
+  --accent-sidebar: #00ff15;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+
+/* RESET */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+* {
+  margin: 0;
+}
+
+body {
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+input, button, textarea, select {
+  font: inherit;
+}
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+#root, #__next {
+  isolation: isolate;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style-type: none;
+  text-decoration: none;
+}
+
+/* END RESET */
+
+/* BASE STYLING */
+
+body {
+  font-family: "Roboto", sans-serif;
+  /* font-family: "Roboto Mono", monospace; */
+}
+
+h1 {
+  font-size: 145px;
+  font-weight: var(--heading-weight);
+}   
+
+p {
+  font-size: 17px;
+  /* max-width: 650px; */
+}
+
+/* END BASE STYLING */
+
+/* GRID LAYOUT */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  height: 100vh;
+}
+
+.main-column {
+  background-color: var(--base-main-bg);
+  color: var(--base-main-text);
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.main-column a {
+  color: var(--accent-main);
+}
+
+.center-column {
+  background-color: var(--base-main-bg);
+}
+
+.sidebar-column {
+  background-color: var(--base-sidebar-bg);
+  color: var(--base-sidebar-text);
+  position: relative;
+  z-index: 1;
+}
+
+/* END GRID LAYOUT */
+
+/* HOME PAGE STYLING */
+
+.main-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Adjust the gap between menu items */
+  margin-left: -2px;
+  padding-left: 0;
+  font-size: 24px;
+}
+
+a:hover {
+  font-family: 'Comic Sans MS', 'Comic Sans', cursive; /* Default font */
+}
+
+/* MAIN COLUMN STYLING */
+
+.main-column p,
+.main-column ul,
+.main-column ol,
+.main-column li {
+  max-width: 750px; /* Adjust the max width as needed */
+}
+
+li {
+  list-style-type: square;
+}
+
+.main-heading {
+  margin-top: -40px;
+  margin-left: -9px;
+}
+
+.main-column {
+  padding-left: 0px;
+}
+
+/* SIDE BAR STYLING */
+
+.social-links {
+  padding-left: 10px;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Adjust the gap between social links */
+  position: relative;
+  z-index: 2;
+}
+
+.big-side-text {
+  font-size: 200px;
+  line-height: 170px;
+  word-wrap: break-word;
+  overflow-wrap: break-word; /* Ensures compatibility across different browsers */
+  font-weight: var(--heading-weight);
+  padding-top: 0px;
+  padding-left: 5px;
+  position: relative;
+  z-index: 1;
+}
+
+/* VIDEO PLAYER STYLING */
+
+.video-wrapper {
+  position: relative;
+  width: calc(100% + 20px); /* Account for padding on main column */
+  left: -20px; /* Shift to the left to negate padding */
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+}
+
+.video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Add spacing for smartphones */
+.content {
+  margin-bottom: 150px; /* Adjust the bottom margin as needed */
+}
+
+#wasm-container {
+  width: 100%;
+  height: 0;
+  padding-bottom: 56.25%;
+  position: relative;
+
+}
+
+#wasm-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+
+/* Media Queries for Smartphones */
+
+@media (max-width: 600px) {
+  body {
+    font-size: 14px;
+  }
+
+  .grid {
+    display:flex;
+    flex-direction: column;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    height: auto;
+  }
+
+  .main-column, .sidebar-column {
+    padding: 10px;
+  }
+
+  .sidebar-column {
+    order: -1; /* Move sidebar above main content */
+  }
+
+  .main-heading {
+    font-size: 80px;
+    margin-top: 0;
+  }
+
+  .big-side-text {
+    font-size: 100px;
+    line-height: 100px;
+  }
+
+  .social-links {
+    font-size: 16px;
+    flex-direction: row;
+  }
+
+  .video-wrapper {
+    width: 100%;
+    left: 0;
+  }
+}

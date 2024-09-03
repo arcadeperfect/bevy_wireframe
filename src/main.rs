@@ -12,6 +12,9 @@ use bevy::{
     scene::SceneInstanceReady,
 };
 
+// mod window_resize_plugin;
+// use window_resize_plugin::WindowResizePlugin;
+
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use fill_material::FillMaterial;
@@ -79,6 +82,7 @@ const ATTRIBUTE_INDEX: MeshVertexAttribute =
 
 fn main() {
     App::new()
+        // .add_plugins(WindowResizePlugin)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(ShaderSettings::default())
         .add_plugins(
@@ -138,37 +142,37 @@ fn setup(
         graph: graph.clone(),
     });
 
-    // let astro = commands
-    //     .spawn((
-    //         SceneBundle {
-    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTROPATH)),
-    //             transform: Transform::from_xyz(0.0, -1.2, 0.0)
-    //                 .with_rotation(Quat::from_rotation_y(0.0))
-    //                 .with_scale(Vec3::splat(1.)),
-    //             ..default()
-    //         },
-    //         WireframeSettings {
-    //             gltf_path: None,
-    //             // gltf_path: Some(String::from(ASTROPATH)),
-
-    //         },
-    //     ))
-    //     .id();
-
-    let torus = commands
+    let astro = commands
         .spawn((
             SceneBundle {
-                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUSPATH)),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTROPATH)),
+                transform: Transform::from_xyz(0.0, -1.2, 0.0)
                     .with_rotation(Quat::from_rotation_y(0.0))
                     .with_scale(Vec3::splat(1.)),
                 ..default()
             },
             WireframeSettings {
-            
+                // gltf_path: None,
+                // gltf_path: Some(String::from(ASTROPATH)),
+
             },
         ))
         .id();
+
+    // let torus = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUSPATH)),
+    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {
+            
+    //         },
+    //     ))
+    //     .id();
 
     // let fox = commands
     //     .spawn((
