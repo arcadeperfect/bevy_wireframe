@@ -75,6 +75,7 @@ struct ShaderSettings {
     fill_displacement: f32,
     fill_shininess: f32,
     fill_specular_strength: f32,
+    brightness: f32,
 }
 
 impl Default for ShaderSettings {
@@ -85,6 +86,7 @@ impl Default for ShaderSettings {
             fill_displacement: 0.0,
             fill_shininess: 250.0,
             fill_specular_strength: 0.1,
+            brightness: 15.0,
         }
     }
 }
@@ -511,6 +513,9 @@ fn ui_system(
             egui::Slider::new(&mut shader_settings.fill_specular_strength, 0.0..=1.0)
                 .text("Specular Strength"),
         );
+        ui.add(
+            egui::Slider::new(&mut shader_settings.brightness, 0.0..=30.0).text("Brightness"),
+        );
         ui.separator();
         ui.heading("Visible");
         ui.radio_value(&mut *visible_model, VisibleModel::Coupe, "Coupe");
@@ -521,6 +526,7 @@ fn ui_system(
     for material_handle in outline_materials.iter() {
         if let Some(material) = outline_materials_assets.get_mut(material_handle) {
             material.outline_width = shader_settings.outline_width;
+            material.brightness = shader_settings.brightness;
         }
     }
 
@@ -528,6 +534,8 @@ fn ui_system(
     for material_handle in line_materials.iter() {
         if let Some(material) = line_materials_assets.get_mut(material_handle) {
             material.displacement = shader_settings.wireframe_displacement;
+            material.brightness = shader_settings.brightness;
+
         }
     }
 
@@ -543,7 +551,7 @@ fn ui_system(
 
 fn update_visibility(
     visible_model: Res<VisibleModel>,
-    mut coupe_query: Query<&mut Visibility, With<CoupeScene>>,
+    mut coupe_query: Query<&mut Visibility, (With<CoupeScene>, Without<AstroScene>)>,
     mut astro_query: Query<&mut Visibility, (With<AstroScene>, Without<CoupeScene>)>,
     ) {
         for mut visibility in coupe_query.iter_mut() {

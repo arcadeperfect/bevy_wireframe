@@ -9,6 +9,8 @@
 struct LineMaterial{
     color: vec4<f32>,
     displacement: f32,
+    use_vertex_color: i32,
+    brightness: f32,
 }
 
 @group(2) @binding(0)
@@ -88,10 +90,16 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+
+    if (material.use_vertex_color == 1){
+        return in.color * material.brightness;
+    }else{
+        return material.color * material.brightness;
+    }
+
     // #ifdef VERTEX_COLORS
     // return in.color;
     // #else
-    return in.color * 15.0;
     // #endif
     
 }

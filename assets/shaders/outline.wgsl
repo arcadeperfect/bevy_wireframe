@@ -59,6 +59,7 @@ struct OutlineMaterial {
     outline_width: f32,
     z_translate: f32,
     use_vertex_color: i32,
+    brightness: f32,
 };
 
 @group(2) @binding(0)
@@ -146,7 +147,6 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     }
 #else
     out.color = material.flat_color;
-    // out.vertex_color = vec4(1.0,1.0,1.0,1.0);
 #endif
 
     return out;
@@ -154,6 +154,5 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
-    // return vec4(1.0,1.0,1.0,1.0);
+    return in.color * material.brightness;
 }

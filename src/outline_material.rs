@@ -5,16 +5,7 @@ use bevy::render::mesh::MeshVertexBufferLayoutRef;
 use bevy::render::render_resource::{
     AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
 };
-
 use crate::ATTRIBUTE_SMOOTHED_NORMAL;
-
-// bitflags! {
-//     /// Bitflags representing the configuration for the `OutlineMaterial`.
-//     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-//     pub struct OutlineMaterialKey: u64 {
-//         const USE_VERTEX_COLOR = 0x0001;
-//     }
-// }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct OutlineMaterial {
@@ -26,6 +17,8 @@ pub struct OutlineMaterial {
     pub z_translate: f32,
     #[uniform(0)]
     pub use_vertex_color: i32,
+    #[uniform(0)]
+    pub brightness: f32,
 }
 
 impl Material for OutlineMaterial {
@@ -71,7 +64,8 @@ impl Default for OutlineMaterial {
             flat_color: Vec4::new(0.6, 1.0, 0.6, 1.0),
             outline_width: 0.0,
             z_translate: 0.1,
-            use_vertex_color: 1,
+            use_vertex_color: 0,
+            brightness: 15.0,
         }
     }
 }
