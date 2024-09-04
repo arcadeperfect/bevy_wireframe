@@ -163,7 +163,7 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
     if let (Some(VertexAttributeValues::Float32x3(_)),) =
         (mesh.attribute(Mesh::ATTRIBUTE_POSITION),)
     {
-        info!("ATTRIBUTE_POSITION: valid attribute");
+        // info!("ATTRIBUTE_POSITION: valid attribute");
     } else {
         panic!("ATTRIBUTE_POSITION: invalid attribute");
         //todo return error
@@ -172,7 +172,7 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
     if let (Some(VertexAttributeValues::Float32x3(_)),) =
         (mesh.attribute(ATTRIBUTE_SMOOTHED_NORMAL),)
     {
-        info!("ATTRIBUTE_SMOOTHED_NORMAL: valid attribute");
+        // info!("ATTRIBUTE_SMOOTHED_NORMAL: valid attribute");
     } else {
         warn!("there really should be a ATTRIBUTE_SMOOTHED_NORMAL attribute");
         // panic!("ATTRIBUTE_NORMAL: invalid attribute");
@@ -180,7 +180,7 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
         if let (Some(VertexAttributeValues::Float32x3(_)),) =
             (mesh.attribute(Mesh::ATTRIBUTE_NORMAL),)
         {
-            info!("ATTRIBUTE_NORMAL: valid attribute");
+            // info!("ATTRIBUTE_NORMAL: valid attribute");
         } else {
             panic!("ATTRIBUTE_NORMAL: invalid attribute");
             //todo return error
@@ -230,7 +230,7 @@ fn mesh_to_line_list_custom(mesh: &Mesh, data: &crate::JsonLineList) -> LineList
         let index_vec = mesh.attribute(ATTRIBUTE_VERT_INDEX).and_then(|attr| {
 
             if let VertexAttributeValues::Float32(values) = attr {
-                info!("found {} ATTRIBUTE_VERT_INDEX values", values.len());
+                // info!("found {} ATTRIBUTE_VERT_INDEX values", values.len());
                 Some(values)
             } else {
                 warn!("unable to get ATTRIBUTE_VERT_INDEX attribute");

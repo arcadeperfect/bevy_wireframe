@@ -64,3 +64,13 @@ pub fn parse_selected_edges(
 
     Ok(result)
 }
+
+impl From<Vec<Vec<i32>>> for JsonLineList {
+    fn from(edges: Vec<Vec<i32>>) -> Self {
+        let line_list = edges
+            .into_iter()
+            .map(|e| [e[0] as u32, e[1] as u32])
+            .collect();
+        JsonLineList { line_list }
+    }
+}

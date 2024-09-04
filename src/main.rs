@@ -47,11 +47,25 @@ const SPHERE_NO_EXTRAS_PATH: &str = "temp/sphere_no_extras.gltf";
 // #[derive(Component)]
 // struct WireFrameScene;
 
+#[derive(Resource, PartialEq)]
+enum VisibleModel {
+    Astro,
+    Coupe,
+}
+
+
+#[derive(Component)]
+struct AstroScene;
+
+#[derive(Component)]
+struct CoupeScene;
+
 #[derive(Resource)]
 struct Animations {
-    animations: Vec<AnimationNodeIndex>,
-    #[allow(dead_code)]
-    graph: Handle<AnimationGraph>,
+    astro_animations: Vec<AnimationNodeIndex>,
+    astro_graph: Handle<AnimationGraph>,
+    coupe_animations: Vec<AnimationNodeIndex>,
+    coupe_graph: Handle<AnimationGraph>,
 }
 
 #[derive(Resource)]
@@ -88,6 +102,7 @@ const ATTRIBUTE_SMOOTHED_NORMAL: MeshVertexAttribute =
 
 fn main() {
     App::new()
+        .insert_resource(VisibleModel::Astro)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(ShaderSettings::default())
         .add_plugins(
@@ -106,16 +121,14 @@ fn main() {
         .add_systems(Update, play_animation_once_loaded.before(animate_targets))
         .add_systems(Update, post_process)
         .add_systems(Update, ui_system) // Add this line
+        .add_systems(Update, update_visibility)
         .run();
 }
-
-
-
 
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graph_assets: ResMut<Assets<AnimationGraph>>,
 ) {
     commands.spawn((
         Camera3dBundle {
@@ -131,60 +144,57 @@ fn setup(
         BloomSettings::NATURAL,
     ));
 
-    // Build the animation graph
-    let mut graph1a = AnimationGraph::new();
-    let animations1 = graph1a
+    // Build the animation graph for the astronaut
+    let mut astro_graph = AnimationGraph::new();
+    let astro_animations = astro_graph
         .add_clips(
-            // [GltfAssetLabel::Animation(0).from_asset(COUPEPATH)]
             [GltfAssetLabel::Animation(0).from_asset(ASTRO_PATH)]
                 .into_iter()
                 .map(|path| assets.load(path)),
             1.0,
-            graph1a.root,
+            astro_graph.root,
         )
         .collect();
 
     // Insert a resource with the current scene information
-    let graph1b = graphs.add(graph1a);
+    let astro_graph_handle = graph_assets.add(astro_graph);
+
+    // Build the animation graph for the coupe
+    let mut coupe_path = AnimationGraph::new();
+    let coupe_animations = coupe_path
+        .add_clips(
+            [GltfAssetLabel::Animation(0).from_asset(COUPE_PATH)]
+                .into_iter()
+                .map(|path| assets.load(path)),
+            1.0,
+            coupe_path.root,
+        )
+        .collect();
+
+    // Insert a resource with the current scene information
+    let coupe_graph_handle = graph_assets.add(coupe_path);
+    
     commands.insert_resource(Animations {
-        animations: animations1,
-        graph: graph1b.clone(),
+        astro_animations,
+        astro_graph: astro_graph_handle,
+        coupe_animations,
+        coupe_graph: coupe_graph_handle,
     });
 
-    // // Build the animation graph
-    // let mut graph2a = AnimationGraph::new();
-    // let animations2 = graph2a
-    //     .add_clips(
-    //         // [GltfAssetLabel::Animation(0).from_asset(COUPEPATH)]
-    //         [GltfAssetLabel::Animation(0).from_asset(COUPE_PATH)]
-    //             .into_iter()
-    //             .map(|path| assets.load(path)),
-    //         1.0,
-    //         graph2a.root,
-    //     )
-    //     .collect();
+    let coupe = commands
+        .spawn((
+            SceneBundle {
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPE_PATH)),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                    .with_rotation(Quat::from_rotation_y(0.0))
+                    .with_scale(Vec3::splat(1.0)),
+                ..default()
+            },
+            WireframeSettings {},
+            CoupeScene,
+        ))
+        .id();
 
-    // // Insert a resource with the current scene information
-    // let graph2b = graphs.add(graph2a);
-    // commands.insert_resource(Animations {
-    //     animations: animations2,
-    //     graph: graph2b.clone(),
-    // });
-    
-    // let coupe = commands
-    //     .spawn((
-    //         SceneBundle {
-    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPE_PATH)),
-    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
-    //                 .with_rotation(Quat::from_rotation_y(0.0))
-    //                 .with_scale(Vec3::splat(1.0)),
-    //             ..default()
-    //         },
-    //         WireframeSettings {},
-    //     ))
-    //     .id();
-    
-    
     let astro = commands
         .spawn((
             SceneBundle {
@@ -195,6 +205,7 @@ fn setup(
                 ..default()
             },
             WireframeSettings {},
+            AstroScene,
         ))
         .id();
 
@@ -233,8 +244,6 @@ fn setup(
     //         WireframeSettings {},
     //     ))
     //     .id();
-
-   
 }
 
 #[derive(Component)]
@@ -242,11 +251,11 @@ struct WheelRotator {
     rotation_speed: f32,
 }
 
-fn rotate_wheels(time: Res<Time>, mut query: Query<(&WheelRotator, &mut Transform)>) {
-    for (wheel, mut transform) in query.iter_mut() {
-        transform.rotate_x(wheel.rotation_speed * time.delta_seconds());
-    }
-}
+// fn rotate_wheels(time: Res<Time>, mut query: Query<(&WheelRotator, &mut Transform)>) {
+//     for (wheel, mut transform) in query.iter_mut() {
+//         transform.rotate_x(wheel.rotation_speed * time.delta_seconds());
+//     }
+// }
 
 fn post_process(
     mut commands: Commands,
@@ -409,22 +418,66 @@ fn play_animation_once_loaded(
     mut commands: Commands,
     animations: Res<Animations>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    parent_query: Query<&Parent>,
+    astro_scenes: Query<Entity, With<AstroScene>>,
+    coupe_scenes: Query<Entity, With<CoupeScene>>,
 ) {
     for (entity, mut player) in &mut players {
-        let mut transitions = AnimationTransitions::new();
-
-        // Make sure to start the animation via the `AnimationTransitions`
-        // component. The `AnimationTransitions` component wants to manage all
-        // the animations and will get confused if the animations are started
-        // directly via the `AnimationPlayer`.
-        transitions
-            .play(&mut player, animations.animations[0], Duration::ZERO)
-            .repeat();
-
-        commands
-            .entity(entity)
-            .insert(animations.graph.clone())
-            .insert(transitions);
+        /*
+        // Find the top-level parent that is tagged with AstroScene or CoupeScene
+        let mut current_entity = entity;
+        while let Ok(parent) = parent_query.get(current_entity) {
+            current_entity = parent.get();
+        }
+        */
+        
+        /*
+        because i cheated and used chat gpt and don't understand, the below is a more verbose version of the above
+        the purpose is to identify which scene we are in denoted by the AstroScene and CoupeScene components
+        
+        todo: generic approach to this
+        */
+        
+        
+        // Start with the current entity, which has an AnimationPlayer
+        let mut current_entity = entity;
+    
+        // Traverse up the hierarchy to find the top-level parent
+        loop {
+            // Attempt to find the Parent component of the current entity
+            match parent_query.get(current_entity) {
+                Ok(parent) => {
+                    // If the current entity has a parent, update current_entity to the parent
+                    current_entity = parent.get();
+                }
+                Err(_) => {
+                    // If the current entity does not have a parent, break the loop
+                    break;
+                }
+            }
+        }
+        
+        if astro_scenes.get(current_entity).is_ok() {
+            println!("astro scene");
+            let mut transitions = AnimationTransitions::new();
+            transitions
+                .play(&mut player, animations.astro_animations[0], Duration::ZERO)
+                .repeat();
+            commands
+                .entity(entity)
+                .insert(animations.astro_graph.clone())
+                .insert(transitions);
+        } else if coupe_scenes.get(current_entity).is_ok() {
+            println!("coupe scene");
+            let mut transitions = AnimationTransitions::new();
+            transitions
+                .play(&mut player, animations.coupe_animations[0], Duration::ZERO)
+                .repeat();
+            commands
+                .entity(entity)
+                .insert(animations.coupe_graph.clone())
+                .insert(transitions);
+        }
     }
 }
 
@@ -437,6 +490,7 @@ fn ui_system(
     line_materials: Query<&Handle<LineMaterial>>,
     mut fill_materials_assets: ResMut<Assets<FillMaterial>>,
     fill_materials: Query<&Handle<FillMaterial>>,
+    mut visible_model: ResMut<VisibleModel>,
 ) {
     egui::Window::new("Shader Controls").show(contexts.ctx_mut(), |ui| {
         ui.add(
@@ -457,6 +511,10 @@ fn ui_system(
             egui::Slider::new(&mut shader_settings.fill_specular_strength, 0.0..=1.0)
                 .text("Specular Strength"),
         );
+        ui.separator();
+        ui.heading("Visible");
+        ui.radio_value(&mut *visible_model, VisibleModel::Coupe, "Coupe");
+        ui.radio_value(&mut *visible_model, VisibleModel::Astro, "Astro");        
     });
 
     // Update all OutlineMaterial instances
@@ -483,25 +541,22 @@ fn ui_system(
     }
 }
 
-// #[derive(serde::Deserialize, serde::Serialize, Debug)]
-// struct GltfExtra {
-//     selected_edges_json: String,
-// }
-
-impl From<Vec<Vec<i32>>> for JsonLineList {
-    fn from(edges: Vec<Vec<i32>>) -> Self {
-        let line_list = edges
-            .into_iter()
-            .map(|e| [e[0] as u32, e[1] as u32])
-            .collect();
-        JsonLineList { line_list }
+fn update_visibility(
+    visible_model: Res<VisibleModel>,
+    mut coupe_query: Query<&mut Visibility, With<CoupeScene>>,
+    mut astro_query: Query<&mut Visibility, (With<AstroScene>, Without<CoupeScene>)>,
+    ) {
+        for mut visibility in coupe_query.iter_mut() {
+            *visibility = match *visible_model {
+                VisibleModel::Coupe => Visibility::Inherited,
+                VisibleModel::Astro => Visibility::Hidden,
+            };
+        }
+    
+        for mut visibility in astro_query.iter_mut() {
+            *visibility = match *visible_model {
+                VisibleModel::Coupe => Visibility::Hidden,
+                VisibleModel::Astro => Visibility::Inherited,
+            };
+        }
     }
-}
-
-// fn parse_gltf_extra(json_str: &str) -> Result<JsonLineList, serde_json::Error> {
-//     let gltf_extra: GltfExtra = serde_json::from_str(json_str)?;
-
-//     let edges: Vec<Vec<i32>> = serde_json::from_str(&gltf_extra.selected_edges_json)?;
-
-//     Ok(JsonLineList::from(edges))
-// }
