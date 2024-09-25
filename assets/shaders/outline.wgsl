@@ -24,7 +24,8 @@ struct Vertex {
 #ifdef MORPH_TARGETS
     @builtin(vertex_index) index: u32,
 #endif
-    @location(8) smooth_normal: vec3<f32>
+    @location(8) smooth_normal: vec3<f32>,
+    // @location(9) alt_color: vec4<f32>
 };
 
 struct VertexOutput {
@@ -140,8 +141,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_COLORS
-    if (material.use_vertex_color > 0) {
-        out.color = vertex.color * 5.0;
+    if (material.use_vertex_color == 1) {
+        out.color = vertex.color;
+    // } else if (material.use_vertex_color == 2){
+    //     out.color = vertex.alt_color;
     } else {
         out.color = material.flat_color;
     }

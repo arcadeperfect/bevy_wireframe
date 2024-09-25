@@ -1,4 +1,6 @@
 use bevy::gltf::{GltfExtras, GltfSceneExtras};
+use bevy::prelude::Color;
+use bevy::render::mesh::VertexAttributeValues;
 use bevy::{
     animation::animate_targets,
     core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
@@ -15,7 +17,10 @@ use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use fill_material::FillMaterial;
 use line_material::LineMaterial;
-use mesh_ops::{get_smoothed_normals, line_list_to_mesh, MeshToLineList, VertexOps};
+use mesh_ops::{
+    generate_random_vertex_colors, get_smoothed_normals, line_list_to_mesh, AsFloat4,
+    MeshToLineList, VertexOps,
+};
 use outline_material::OutlineMaterial;
 use parse_extras::{parse_gltf_extra_json, JsonLineList};
 use serde_json::Value;
@@ -53,6 +58,16 @@ enum VisibleModel {
     Coupe,
 }
 
+// #[derive(Component)]
+// struct ColorBuffer{
+//     colorz: Option<Vec<Vec<[f32; 4]>>>
+// }
+
+// impl Default for ColorBuffer{
+//     fn default() -> Self {
+//         Self { colorz: None }
+//     }
+// }
 
 #[derive(Component)]
 struct AstroScene;
@@ -76,6 +91,8 @@ struct ShaderSettings {
     fill_shininess: f32,
     fill_specular_strength: f32,
     brightness: f32,
+    vertex_color_mode: i32,
+    color: Color,
 }
 
 impl Default for ShaderSettings {
@@ -87,13 +104,27 @@ impl Default for ShaderSettings {
             fill_shininess: 250.0,
             fill_specular_strength: 0.1,
             brightness: 15.0,
+            vertex_color_mode: 1,
+            color: Color::WHITE,
         }
     }
 }
 
 #[derive(Component)]
 struct WireframeSettings {
-    // gltf_path: Option<String>,
+    original_colors: Vec<[f32; 4]>,
+    alt_colors: Vec<[f32; 4]>,
+    current_mode: i32,
+}
+
+impl Default for WireframeSettings {
+    fn default() -> Self {
+        Self {
+            original_colors: Vec::new(),
+            alt_colors: Vec::new(),
+            current_mode: 1, // Default to vertex color mode
+        }
+    }
 }
 
 const ATTRIBUTE_VERT_INDEX: MeshVertexAttribute =
@@ -101,6 +132,9 @@ const ATTRIBUTE_VERT_INDEX: MeshVertexAttribute =
 
 const ATTRIBUTE_SMOOTHED_NORMAL: MeshVertexAttribute =
     MeshVertexAttribute::new("SmoothNormal", 723495149, VertexFormat::Float32x3);
+
+// const ATTRIBUTE_ALT_COLOR: MeshVertexAttribute =
+//     MeshVertexAttribute::new("AltColor", 1948574392, VertexFormat::Float32x4);
 
 fn main() {
     App::new()
@@ -111,7 +145,7 @@ fn main() {
             DefaultPlugins.set(
                 GltfPlugin::default()
                     .add_custom_vertex_attribute("VERT_INDEX", ATTRIBUTE_VERT_INDEX)
-                    .add_custom_vertex_attribute("SMOOTH_NORMAL", ATTRIBUTE_SMOOTHED_NORMAL),
+                    .add_custom_vertex_attribute("SMOOTH_NORMAL", ATTRIBUTE_SMOOTHED_NORMAL), // .add_custom_vertex_attribute("ALT_COLOR", ATTRIBUTE_ALT_COLOR),
             ),
         )
         .add_plugins(EguiPlugin)
@@ -120,10 +154,12 @@ fn main() {
         .add_plugins(MaterialPlugin::<OutlineMaterial>::default())
         .add_plugins(MaterialPlugin::<LineMaterial>::default())
         .add_systems(Startup, setup)
+        .add_systems(Startup, spawn)
         .add_systems(Update, play_animation_once_loaded.before(animate_targets))
         .add_systems(Update, post_process)
         .add_systems(Update, ui_system) // Add this line
         .add_systems(Update, update_visibility)
+        .add_systems(Update, handle_color_switching)
         .run();
 }
 
@@ -175,7 +211,7 @@ fn setup(
 
     // Insert a resource with the current scene information
     let coupe_graph_handle = graph_assets.add(coupe_path);
-    
+
     commands.insert_resource(Animations {
         astro_animations,
         astro_graph: astro_graph_handle,
@@ -183,33 +219,33 @@ fn setup(
         coupe_graph: coupe_graph_handle,
     });
 
-    let coupe = commands
-        .spawn((
-            SceneBundle {
-                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPE_PATH)),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                    .with_rotation(Quat::from_rotation_y(0.0))
-                    .with_scale(Vec3::splat(1.0)),
-                ..default()
-            },
-            WireframeSettings {},
-            CoupeScene,
-        ))
-        .id();
+    // let coupe = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPE_PATH)),
+    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.0)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {},
+    //         CoupeScene,
+    //     ))
+    //     .id();
 
-    let astro = commands
-        .spawn((
-            SceneBundle {
-                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTRO_PATH)),
-                transform: Transform::from_xyz(0.0, -1.2, 0.0)
-                    .with_rotation(Quat::from_rotation_y(0.0))
-                    .with_scale(Vec3::splat(1.)),
-                ..default()
-            },
-            WireframeSettings {},
-            AstroScene,
-        ))
-        .id();
+    // let astro = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTRO_PATH)),
+    //             transform: Transform::from_xyz(0.0, -1.2, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {},
+    //         AstroScene,
+    //     ))
+    //     .id();
 
     // let torus = commands
     //     .spawn((
@@ -248,6 +284,50 @@ fn setup(
     //     .id();
 }
 
+fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
+    // let coupe = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(COUPE_PATH)),
+    //             transform: Transform::from_xyz(0.0, 0.0, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.0)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {},
+    //         CoupeScene,
+    //     ))
+    //     .id();
+
+    // let astro = commands
+    //     .spawn((
+    //         SceneBundle {
+    //             scene: assets.load(GltfAssetLabel::Scene(0).from_asset(ASTRO_PATH)),
+    //             transform: Transform::from_xyz(0.0, -1.2, 0.0)
+    //                 .with_rotation(Quat::from_rotation_y(0.0))
+    //                 .with_scale(Vec3::splat(1.)),
+    //             ..default()
+    //         },
+    //         WireframeSettings {},
+    //         AstroScene,
+    //     ))
+    //     .id();
+
+    let torus = commands
+        .spawn((
+            SceneBundle {
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(TORUS_PATH)),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                    .with_rotation(Quat::from_rotation_y(0.0))
+                    .with_scale(Vec3::splat(1.)),
+                ..default()
+            },
+            WireframeSettings::default(),
+            // ColorBuffer::default(),
+        ))
+        .id();
+}
+
 #[derive(Component)]
 struct WheelRotator {
     rotation_speed: f32,
@@ -271,7 +351,7 @@ fn post_process(
     mut outline_materials: ResMut<Assets<OutlineMaterial>>, // Add FillMaterial resource
     mut mesh_assets: ResMut<Assets<Mesh>>,
     shader_settings: Res<ShaderSettings>,
-    wf: Query<&WireframeSettings>,
+    mut wf: Query<&mut WireframeSettings>,
     skinned_meshes: Query<&SkinnedMesh>,
     query: Query<(Entity, &Name), Without<WheelRotator>>,
 ) {
@@ -286,8 +366,12 @@ fn post_process(
     for event in events.read() {
         // Only proceeed if the spawned mesh has a wireframe component
 
+        let mut wfs;
+
         if wf.get(event.parent).is_err() {
             continue;
+        } else {
+            wfs = wf.get_mut(event.parent).unwrap();
         }
 
         // Out of laziness I iterate through the whole scene until I find the scene level extra which contains a json dictionary
@@ -306,7 +390,7 @@ fn post_process(
             }
         }
 
-        // Now we iterate through each mesh and apply the wireframe post processing
+        // Iterate through each mesh and apply the wireframe post processing
         // If scene extras were found, it will generate the line lists according to the json dictionary
         // Otherwise it will generate a line list for every edge of the mesh
 
@@ -317,6 +401,22 @@ fn post_process(
 
                     mesh.randomize_vertex_colors(); //todo problem is this effects other instances of the mesh in scenes that don't have the wireframe component
 
+                    if let Ok(rando_colors) = generate_random_vertex_colors(&mesh) {
+                        // wfs.color_buffer.push(rando_colors);
+                        wfs.alt_colors = rando_colors;
+                    }
+
+                    if let Some(original_colors) = mesh
+                        .attribute(Mesh::ATTRIBUTE_COLOR)
+                        .map(|attr| attr.as_float4().unwrap().to_vec())
+                    {
+                        commands.entity(entity).insert(WireframeSettings {
+                            // original_colors: original_colors.into_iter().map(|[r, g, b]| [r, g, b, 1.0]).collect(),
+                            original_colors,
+                            ..Default::default()
+                        });
+                    }
+
                     let smoothed_normals: Vec<[f32; 3]> = get_smoothed_normals(mesh).unwrap();
                     // invert_normals(&mut smoothed_normals);
                     mesh.insert_attribute(ATTRIBUTE_SMOOTHED_NORMAL, smoothed_normals);
@@ -326,10 +426,11 @@ fn post_process(
 
                     // Add FillMaterial component
                     let fill_material_handle = fill_materials.add(FillMaterial {
-                        color: Vec4::new(0.0, 0.0, 0.0, 1.0),
+                        color: Vec4::new(1.0, 0.0, 0.0, 1.0),
                         displacement: 0.0,
                         shininess: 200.0,
                         specular_strength: 1.0,
+                        vertex_color_mode: 1,
                     });
                     commands.entity(entity).insert(fill_material_handle.clone());
 
@@ -432,18 +533,17 @@ fn play_animation_once_loaded(
             current_entity = parent.get();
         }
         */
-        
+
         /*
         because i cheated and used chat gpt and don't understand, the below is a more verbose version of the above
         the purpose is to identify which scene we are in denoted by the AstroScene and CoupeScene components
-        
+
         todo: generic approach to this
         */
-        
-        
+
         // Start with the current entity, which has an AnimationPlayer
         let mut current_entity = entity;
-    
+
         // Traverse up the hierarchy to find the top-level parent
         loop {
             // Attempt to find the Parent component of the current entity
@@ -458,7 +558,7 @@ fn play_animation_once_loaded(
                 }
             }
         }
-        
+
         if astro_scenes.get(current_entity).is_ok() {
             println!("astro scene");
             let mut transitions = AnimationTransitions::new();
@@ -513,29 +613,61 @@ fn ui_system(
             egui::Slider::new(&mut shader_settings.fill_specular_strength, 0.0..=1.0)
                 .text("Specular Strength"),
         );
-        ui.add(
-            egui::Slider::new(&mut shader_settings.brightness, 0.0..=30.0).text("Brightness"),
-        );
+        ui.add(egui::Slider::new(&mut shader_settings.brightness, 0.0..=30.0).text("Brightness"));
         ui.separator();
         ui.heading("Visible");
         ui.radio_value(&mut *visible_model, VisibleModel::Coupe, "Coupe");
-        ui.radio_value(&mut *visible_model, VisibleModel::Astro, "Astro");        
+        ui.radio_value(&mut *visible_model, VisibleModel::Astro, "Astro");
+        ui.separator();
+        ui.heading("Color Source");
+
+        // use material color
+        ui.radio_value(
+            &mut shader_settings.vertex_color_mode,
+            0,
+            "Use Material Color",
+        );
+
+        // use vertex color
+        ui.radio_value(
+            &mut shader_settings.vertex_color_mode,
+            1,
+            "Use Vertex Color",
+        );
+
+        // use alt color
+        ui.radio_value(&mut shader_settings.vertex_color_mode, 2, "Use Alt Color");
+        
+        ui.separator();
+        ui.heading("Color");
+
+        let mut color = shader_settings.color.to_linear().to_f32_array();
+        if ui.color_edit_button_rgba_unmultiplied(&mut color).changed() {
+            shader_settings.color = Color::rgba(color[0], color[1], color[2], color[3]);
+        }
     });
 
     // Update all OutlineMaterial instances
     for material_handle in outline_materials.iter() {
+        // println!("b");
         if let Some(material) = outline_materials_assets.get_mut(material_handle) {
+            // println!("c");
             material.outline_width = shader_settings.outline_width;
             material.brightness = shader_settings.brightness;
+            material.vertex_color_mode = shader_settings.vertex_color_mode;
+            material.color = shader_settings.color.to_linear().to_vec4();
         }
     }
 
     // Update all LineMaterial instances
     for material_handle in line_materials.iter() {
+        // println!("d");
         if let Some(material) = line_materials_assets.get_mut(material_handle) {
+            // println!("e");
             material.displacement = shader_settings.wireframe_displacement;
             material.brightness = shader_settings.brightness;
-
+            material.vertex_color_mode = shader_settings.vertex_color_mode;
+            material.color = shader_settings.color.to_linear().to_vec4();
         }
     }
 
@@ -545,6 +677,8 @@ fn ui_system(
             material.displacement = shader_settings.fill_displacement;
             material.shininess = shader_settings.fill_shininess;
             material.specular_strength = shader_settings.fill_specular_strength;
+            material.vertex_color_mode = shader_settings.vertex_color_mode;
+            material.color = shader_settings.color.to_linear().to_vec4();
         }
     }
 }
@@ -553,18 +687,59 @@ fn update_visibility(
     visible_model: Res<VisibleModel>,
     mut coupe_query: Query<&mut Visibility, (With<CoupeScene>, Without<AstroScene>)>,
     mut astro_query: Query<&mut Visibility, (With<AstroScene>, Without<CoupeScene>)>,
-    ) {
-        for mut visibility in coupe_query.iter_mut() {
-            *visibility = match *visible_model {
-                VisibleModel::Coupe => Visibility::Inherited,
-                VisibleModel::Astro => Visibility::Hidden,
-            };
-        }
-    
-        for mut visibility in astro_query.iter_mut() {
-            *visibility = match *visible_model {
-                VisibleModel::Coupe => Visibility::Hidden,
-                VisibleModel::Astro => Visibility::Inherited,
-            };
+) {
+    for mut visibility in coupe_query.iter_mut() {
+        *visibility = match *visible_model {
+            VisibleModel::Coupe => Visibility::Inherited,
+            VisibleModel::Astro => Visibility::Hidden,
+        };
+    }
+
+    for mut visibility in astro_query.iter_mut() {
+        *visibility = match *visible_model {
+            VisibleModel::Coupe => Visibility::Hidden,
+            VisibleModel::Astro => Visibility::Inherited,
+        };
+    }
+}
+
+fn handle_color_switching(
+    mut commands: Commands,
+    shader_settings: Res<ShaderSettings>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut query: Query<(Entity, &Handle<Mesh>, &mut WireframeSettings)>,
+) {
+    for (entity, mesh_handle, mut settings) in query.iter_mut() {
+        if let Some(mesh) = meshes.get_mut(mesh_handle) {
+            if shader_settings.vertex_color_mode != settings.current_mode {
+                if shader_settings.vertex_color_mode == 2 {
+                    // Switching to alt color
+                    if settings.alt_colors.is_empty() {
+                        // Generate alt colors if they don't exist
+                        settings.alt_colors =
+                            generate_random_vertex_colors(mesh).unwrap_or_default();
+                    }
+                    if settings.original_colors.is_empty() {
+                        // Store original colors if not already stored
+                        settings.original_colors = mesh
+                            .attribute(Mesh::ATTRIBUTE_COLOR)
+                            .unwrap()
+                            .as_float4()
+                            .unwrap()
+                            .to_vec();
+                    }
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, settings.alt_colors.clone());
+                } else {
+                    // Switching back to original color
+                    if !settings.original_colors.is_empty() {
+                        mesh.insert_attribute(
+                            Mesh::ATTRIBUTE_COLOR,
+                            settings.original_colors.clone(),
+                        );
+                    }
+                }
+                settings.current_mode = shader_settings.vertex_color_mode;
+            }
         }
     }
+}

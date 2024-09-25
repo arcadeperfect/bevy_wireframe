@@ -38,9 +38,10 @@
 						"_VERT_INDEX":0,
 						"POSITION":1,
 						"NORMAL":2,
-						"TEXCOORD_0":3
+						"TEXCOORD_0":3,
+						"COLOR_0":4
 					},
-					"indices":4
+					"indices":5
 				}
 			]
 		}
@@ -82,6 +83,12 @@
 		},
 		{
 			"bufferView":4,
+			"componentType":5126,
+			"count":12928,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":5,
 			"componentType":5123,
 			"count":19392,
 			"type":"SCALAR"
@@ -114,14 +121,20 @@
 		},
 		{
 			"buffer":0,
-			"byteLength":38784,
+			"byteLength":155136,
 			"byteOffset":465408,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":38784,
+			"byteOffset":620544,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":504192,
+			"byteLength":659328,
 			"uri":"torus.bin"
 		}
 	]
