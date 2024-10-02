@@ -150,7 +150,7 @@ fn main() {
         .add_systems(Update, play_animation_once_loaded.before(animate_targets))
         .add_systems(Update, post_process)
         .add_systems(Update, ui_system) // Add this line
-        // .add_systems(Update, update_visibility)
+        .add_systems(Update, update_visibility)
         // .add_systems(Update, handle_color_switching)
         .run();
 }
@@ -251,7 +251,21 @@ fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
                 ..default()
             },
             WireframeSettings::default(),
-            // ColorBuffer::default(),
+            TorusSceneTag,
+        ))
+        .id();
+
+    let sphere = commands
+        .spawn((
+            SceneBundle {
+                scene: assets.load(GltfAssetLabel::Scene(0).from_asset(SPHERE_PATH)),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                    .with_rotation(Quat::from_rotation_y(0.0))
+                    .with_scale(Vec3::splat(1.)),
+                ..default()
+            },
+            WireframeSettings::default(),
+            SphereSceneTag,
         ))
         .id();
 }
@@ -534,7 +548,7 @@ fn ui_system(
         );
         ui.add(egui::Slider::new(&mut shader_settings.brightness, 0.0..=30.0).text("Brightness"));
         ui.separator();
-        ui.heading("Visible");
+        ui.heading("Visible Model");
         ui.radio_value(&mut *visible_model, VisibleModel::Coupe, "Coupe");
         ui.radio_value(&mut *visible_model, VisibleModel::Astro, "Astro");
         ui.radio_value(&mut *visible_model, VisibleModel::Torus, "Torus");
@@ -542,24 +556,18 @@ fn ui_system(
         ui.separator();
         ui.heading("Color Source");
 
-        // use material color
         ui.radio_value(
             &mut shader_settings.vertex_color_mode,
             0,
             "Use Material Color",
         );
-
-        // use vertex color
         ui.radio_value(
             &mut shader_settings.vertex_color_mode,
             1,
             "Use Vertex Color",
         );
-
-        // use alt color
         ui.radio_value(&mut shader_settings.vertex_color_mode, 2, "Use Alt Color");
 
-        // user color
         ui.separator();
         ui.heading("Color");
 
