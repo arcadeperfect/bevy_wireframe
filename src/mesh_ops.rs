@@ -112,13 +112,13 @@ pub struct Vert {
 }
 
 pub trait MeshToLineList {
-    fn mesh_to_line_list_custom_data(&self, data: &crate::JsonLineList) -> LineList;
+    fn mesh_to_line_list_from_json(&self, data: &crate::JsonLineList) -> LineList;
     fn mesh_to_line_list(&self) -> LineList;
 }
 
 impl MeshToLineList for Mesh {
-    fn mesh_to_line_list_custom_data(&self, data: &crate::JsonLineList) -> LineList {
-        mesh_to_line_list_custom(self, data)
+    fn mesh_to_line_list_from_json(&self, data: &crate::JsonLineList) -> LineList {
+        mesh_to_line_list_from_json(self, data)
     }
     fn mesh_to_line_list(&self) -> LineList {
         match mesh_to_line_list(self) {
@@ -199,7 +199,7 @@ pub fn line_list_to_mesh(line_list: &LineList, mesh: &Mesh) -> Mesh {
 
     new_mesh
 }
-fn mesh_to_line_list_custom(input_mesh: &Mesh, data: &crate::JsonLineList) -> LineList {
+fn mesh_to_line_list_from_json(input_mesh: &Mesh, data: &crate::JsonLineList) -> LineList {
     
     let mut line_list = LineList::default();
     let mut edge_set = HashSet::new();
